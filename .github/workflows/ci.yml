@@ -21,6 +21,6 @@ jobs:
       - name: Dependency audit summary
         run: |
           npm audit --json > /tmp/npm-audit.json || true
-          node -e "const a=require('/tmp/npm-audit.json'); console.log('Dependency vulnerabilities:', JSON.stringify(a.metadata?.vulnerabilities || {}))"
+          node -e "const a=require('/tmp/npm-audit.json'); console.log('Dependency vulnerabilities:', JSON.stringify(a.metadata?.vulnerabilities || {})); for (const [name, v] of Object.entries(a.vulnerabilities || {})) console.log(name, v.severity, 'fix:', JSON.stringify(v.fixAvailable))"
       - name: Typecheck and build
         run: npm run build
