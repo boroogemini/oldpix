@@ -1,6 +1,6 @@
 import type * as ort from "onnxruntime-web/wasm";
 
-const REV = "0662739";
+const REV = "main"; // SHA-256 checks below pin the exact model contents.
 const BASE = `https://huggingface.co/ingmebs/bspicture-modelos/resolve/${REV}/`;
 const MODELS = {
   scratches: { file: "reparar_rayas_v1.onnx", sha: "3ea1a382fb8660490f8ec44875adaa51f563342f0b2ac203d98574ad5631528e" },
@@ -152,7 +152,7 @@ async function colorize(source: HTMLImageElement, progress?: (p:number)=>void): 
 
 async function repairScratches(source: HTMLImageElement, progress?: (p:number)=>void): Promise<HTMLCanvasElement> {
   const originalW=source.naturalWidth, originalH=source.naturalHeight;
-  const scale=256/Math.min(originalW,originalH);
+  const scale=Math.min(256/Math.min(originalW,originalH),1536/Math.max(originalW,originalH));
   const dw=Math.max(16,Math.round(originalW*scale/16)*16), dh=Math.max(16,Math.round(originalH*scale/16)*16);
   const detectorInput=canvasOf(source,dw,dh), ctx=detectorInput.getContext("2d",{willReadFrequently:true})!;
   const rgba=ctx.getImageData(0,0,dw,dh).data, gray=new Float32Array(dw*dh);
@@ -201,10 +201,8 @@ async function repairScratches(source: HTMLImageElement, progress?: (p:number)=>
   const restoredCanvas=document.createElement("canvas");restoredCanvas.width=512;restoredCanvas.height=512;
   restoredCanvas.getContext("2d")!.putImageData(output,0,0);
   // Keep the original detail outside the detected scratch mask.
-  const merged=canvasOf(source,originalW,originalH), mfull=document.createElement("canvas");mfull.width=originalW;mfull.height=originalH;
+  const mfull=document.createElement("canvas");mfull.width=originalW;mfull.height=originalH;
   const mf=mfull.getContext("2d")!;mf.drawImage(maskCanvas,0,0,originalW,originalH);
-  const outCtx=merged.getContext("2d")!;outCtx.save();outCtx.globalCompositeOperation="destination-out";outCtx.drawImage(mfull,0,0);outCtx.restore();
-  outCtx.drawImage(restoredCanvas,0,0,originalW,originalH);
   // Restore original photo outside mask by overlaying its inverse mask.
   const inverse=document.createElement("canvas");inverse.width=originalW;inverse.height=originalH;
   const inv=inverse.getContext("2d")!, invData=inv.createImageData(originalW,originalH);
