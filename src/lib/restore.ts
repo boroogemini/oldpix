@@ -28,11 +28,12 @@ export type RestoreAdjustments = {
   flipVertical: boolean;
   grayscale: boolean;
   sepia: number;
+  crop: number;
 };
 
 const DEFAULT_ADJUSTMENTS: RestoreAdjustments = {
   brightness: 0, contrast: 0, saturation: 0, warmth: 0, sharpness: 0,
-  scratchReduction: 0, colorize: 0, rotation: 0, flipHorizontal: false, flipVertical: false, grayscale: false, sepia: 0,
+  scratchReduction: 0, colorize: 0, rotation: 0, flipHorizontal: false, flipVertical: false, grayscale: false, sepia: 0, crop: 0,
 };
 
 async function applyAdjustments(blob: Blob, settings: RestoreAdjustments): Promise<Blob> {
@@ -106,6 +107,17 @@ async function applyAdjustments(blob: Blob, settings: RestoreAdjustments): Promi
       transformedContext.scale(settings.flipHorizontal ? -1 : 1, settings.flipVertical ? -1 : 1);
       transformedContext.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
       outputCanvas = transformed;
+    }
+    if (settings.crop > 0) {
+      const ratio = 1 - settings.crop / 100;
+      const cropWidth = Math.max(1, Math.round(outputCanvas.width * ratio));
+      const cropHeight = Math.max(1, Math.round(outputCanvas.height * ratio));
+      const cropped = document.createElement("canvas");
+      cropped.width = cropWidth; cropped.height = cropHeight;
+      const cropContext = cropped.getContext("2d");
+      if (!cropContext) throw new Error("Тайрах хэрэгсэл ажилласангүй.");
+      cropContext.drawImage(outputCanvas, Math.round((outputCanvas.width - cropWidth) / 2), Math.round((outputCanvas.height - cropHeight) / 2), cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+      outputCanvas = cropped;
     }
     return await canvasBlob(outputCanvas);
   } finally {
@@ -323,8 +335,8 @@ async function restoreTiled(source: HTMLImageElement, onProgress?: (value: numbe
   return {
     blob: await applyAdjustments(await canvasBlob(outputCanvas), adjustments),
     mode: "onnx",
-    width: outputCanvas.width,
-    height: outputCanvas.height,
+    width: ((settings.rotation % 180) === 0 ? outputCanvas.width : outputCanvas.height),
+    height: ((settings.rotation % 180) === 0 ? outputCanvas.height : outputCanvas.width),
   };
 }
 
