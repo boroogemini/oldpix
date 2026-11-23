@@ -65,7 +65,7 @@ export default function App() {
         if (!active) return;
         if (order.status === "paid") { setPhase("paid"); setPaymentState("Төлбөр амжилттай баталгаажлаа"); }
         else if (order.status === "expired" || order.status === "failed") { setError("Төлбөрийн хугацаа дууссан эсвэл амжилтгүй боллоо. Дахин төлбөр үүсгэнэ үү."); setPhase("done"); }
-        else setPaymentState("Wire.mn төлбөрийг баталгаажуулж байна…");
+        else setPaymentState("QPay төлбөрийг баталгаажуулж байна…");
       } catch { if (active) setPaymentState("Холболтыг шалгаж байна…"); }
     };
     void poll();
@@ -90,7 +90,7 @@ export default function App() {
   const faqs = [
     ["Миний зураг хаана хадгалагдах вэ?", "Таны зураг зөвхөн өөрийн browser дотор боловсруулагдана. Эх зураг болон сэргээсэн зураг манай сервер рүү илгээгдэхгүй."],
     ["Хэзээ төлбөр төлөх вэ?", "Зургаа сонгож боловсруулан үр дүнг урьдчилан харсны дараа өндөр нягтралтай PNG татахын өмнө нэг зурагт 3,000₮ төлнө."],
-    ["Төлбөр хийсний дараа зураг татагдахгүй бол яах вэ?", "Төлбөрийг Wire.mn webhook-оор сервер баталгаажуулна. Энэ үед хуудсыг хаахгүй байгаарай. Төлбөр баталгаажмагц татах товч идэвхжинэ."],
+    ["Төлбөр хийсний дараа зураг татагдахгүй бол яах вэ?", "Төлбөрийг QPay сувгаар хийж, сервер автоматаар баталгаажуулна. Энэ үед хуудсыг хаахгүй байгаарай. Төлбөр баталгаажмагц татах товч идэвхжинэ."],
     ["Утаснаас ашиглаж болох уу?", "Орчин үеийн Chrome, Edge, Safari болон Firefox browser дээр ажиллахаар бүтээгдсэн. Том хэмжээний зураг боловсруулахад төхөөрөмжийн хүчин чадал нөлөөлнө."]
   ];
 
@@ -143,7 +143,7 @@ export default function App() {
             {result && preview ? <div className="result-image"><img src={resultPreview} alt="Сэргээсэн зураг"/><span>{result.mode === "onnx" ? "AI ЗАГВАР" : "ЛОКАЛ САЙЖРУУЛАЛТ"}</span></div> : <div className="empty-result"><span className="empty-icon"><WandSparkles size={26}/></span><b>Таны сэргээсэн зураг энд харагдана</b><small>Эхлээд зургaa сонгоод боловсруулна уу.</small></div>}
             {result && <div className="result-details"><span>{result.width} × {result.height} px</span><span>PNG · Төхөөрөмж дээр</span></div>}
             {phase === "done" && <div className="payment-card"><div><span className="payment-label">HD ТАТАХ ЭРХ</span><strong>3,000₮</strong><small>Нэг зураг · Нэг удаагийн төлбөр</small></div><button className="primary-btn" onClick={startPayment} disabled={busy}>{busy ? "Үүсгэж байна…" : <>Төлбөр төлөх <ArrowRight size={17}/></>}</button></div>}
-            {phase === "payment" && <div className="payment-wait"><span className="spinner"/><b>{paymentState}</b><small>Wire.mn төлбөрийн цонхонд гүйлгээгээ хийнэ үү. Энэ хуудсыг хааж болохгүй.</small><a href={checkoutUrl} target="_blank" rel="noreferrer">Төлбөрийн цонхыг дахин нээх <ArrowRight size={14}/></a></div>}
+            {phase === "payment" && <div className="payment-wait"><span className="spinner"/><b>{paymentState}</b><small>QPay төлбөрийн цонхонд гүйлгээгээ хийнэ үү. Энэ хуудсыг хааж болохгүй.</small><a href={checkoutUrl} target="_blank" rel="noreferrer">Төлбөрийн цонхыг дахин нээх <ArrowRight size={14}/></a></div>}
             {phase === "paid" && <div className="paid-card"><div><Check size={19}/><b>Төлбөр баталгаажлаа!</b></div><button className="primary-btn" onClick={download}>HD зураг татах <ArrowDownToLine size={18}/></button></div>}
           </div>
         </div>
