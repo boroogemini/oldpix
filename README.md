@@ -44,6 +44,29 @@ Pages Functions болон D1 binding-тай локал preview:
 npm run pages:dev
 ```
 
+## Cloudflare deploy — ЧУХАЛ
+
+Энэ төсөл нь **Cloudflare Pages + Pages Functions** архитектуртай. Cloudflare Workers-ийн ердийн `wrangler deploy` командыг энэ репозиторт ашиглаж болохгүй. Тэр команд Workers Static Assets-ийн `[assets]` тохиргоо шаардаж, таны харуулсан `No assets directory specified` алдааг үүсгэдэг.
+
+Cloudflare Dashboard дээр **Workers & Pages → Create application → Pages → Connect to Git** замаар `boroogemini/oldpix` репозиторыг холбоно. Pages build тохиргоо:
+
+- Framework preset: **Vite**
+- Root directory: `/`
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Build/deploy хийхэд ердийн **Worker deploy command** (`wrangler deploy`) бүү тохируул.
+- Wrangler Pages config нь энэ репозиторын `wrangler.toml` дахь `pages_build_output_dir = "./dist"` мөрөөр тодорхойлогдоно.
+
+CLI-ээр гараар нийтлэх бол:
+
+```bash
+npm ci
+npm run build
+npx wrangler pages deploy dist --project-name oldpix-ai
+```
+
+Эсвэл `npm run deploy` ашиглаж болно. `npx wrangler deploy` болон `wrangler pages deploy` нь өөр өөр deploy target тул хооронд нь сольж хэрэглэж болохгүй.
+
 ## Cloudflare тохиргоо
 
 1. Cloudflare Dashboard дээр oldpix-orders нэртэй D1 database үүсгэнэ.
