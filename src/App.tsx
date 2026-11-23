@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownToLine, Check, ImagePlus, LockKeyhole, Moon, Palette, RotateCcw, ShieldCheck, Sparkles, Sun, UploadCloud, WandSparkles, X } from "lucide-react";
+import { ArrowDownToLine, Check, ImagePlus, LockKeyhole, Moon, RotateCcw, ShieldCheck, Sparkles, Sun, UploadCloud, WandSparkles, X } from "lucide-react";
 import { createOrder, getOrder } from "./lib/api";
 import { restoreImage, type RestoreResult } from "./lib/restore";
 
