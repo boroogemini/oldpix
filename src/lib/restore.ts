@@ -109,7 +109,7 @@ async function applyAdjustments(blob: Blob, settings: RestoreAdjustments): Promi
       outputCanvas = transformed;
     }
     if (settings.crop > 0) {
-      const ratio = 1 - adjustments.crop / 100;
+      const ratio = 1 - settings.crop / 100;
       const cropWidth = Math.max(1, Math.round(outputCanvas.width * ratio));
       const cropHeight = Math.max(1, Math.round(outputCanvas.height * ratio));
       const cropped = document.createElement("canvas");
