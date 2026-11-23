@@ -16,3 +16,6 @@
 .editor-action-grid button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
 .editor-note{display:flex;align-items:flex-start;gap:7px;margin-top:12px;padding:10px;border-radius:9px;background:var(--surface);color:var(--muted);font-size:9px;line-height:1.5}
 .editor-note svg{flex:0 0 auto;color:var(--accent);margin-top:1px}
+
+.mono-toggle{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:38px;margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);font-size:9px;font-weight:700;cursor:pointer}
+.mono-toggle[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
