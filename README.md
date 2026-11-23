@@ -2,38 +2,109 @@
 
 **Хуучин дурсамжийг шинэчилнэ.**
 
-OLDPix AI нь хуучин, бүдэг, гэмтсэн гэрэл зургийг хэрэглэгчийн өөрийн төхөөрөмж дээр AI ашиглан сэргээх Монгол хэлтэй веб апп юм.
+Монгол хэлтэй, бүртгэлгүй хуучин зураг сэргээх веб апп. Зураг хэрэглэгчийн browser дотор боловсруулагдана. Серверт зөвхөн захиалга болон төлбөрийн metadata хадгална.
 
-## Үндсэн зарчим
+## Одоогийн хэрэгжүүлэлт
 
-- Бүртгэл, нэвтрэх шаардлагагүй.
-- Зураг хэрэглэгчийн browser/device дотор боловсруулагдана.
-- Эх зураг болон сэргээсэн зураг серверт байршуулахгүй, хадгалахгүй.
-- Нэг өндөр нягтралтай зураг татахад **₮3,000** төлнө.
-- Сарын эрх, subscription, урьдчилсан кредит байхгүй.
-- Төлбөр Wire.mn Hosted Checkout болон баталгаажсан webhook-оор шалгагдана.
+- Responsive Монгол хэлтэй веб интерфэйс.
+- JPG, PNG, WEBP зураг сонгох, 18 MB болон 36 MP дээд хязгаар.
+- Browser дотор зураг боловсруулах; эх файл сервер рүү upload хийхгүй.
+- ONNX Runtime Web холбох боломжтой adapter (WebGPU → WASM).
+- ONNX загвар тохируулаагүй үед локал contrast/sharpen сайжруулалтын fallback. **Энэ fallback нь neural AI биш**; бодит AI restoration загварын файл болон түүний лицензийг баталгаажуулж тохируулах шаардлагатай.
+- Нэг HD PNG таталт **₮3,000 MNT**.
+- Wire.mn PaymentIntent + Hosted Checkout.
+- payment_intent.succeeded webhook: timestamp, HMAC-SHA256, constant-time signature compare, event dedupe, Wire API-аас PaymentIntent дахин шалгах, 3000 MNT/currency/order metadata тулгалт.
+- Cloudflare Pages Functions + D1. Зураг, pixel data, output file серверт хадгалахгүй.
+- Төлбөрийн цонх шинэ tab-д нээгдэнэ; эх tab дээр Blob санах ойд үлдэж төлбөр баталгаажсаны дараа татагдана.
 
-## Сонгосон архитектур
+## Стек
 
-- **Frontend:** Cloudflare Pages
-- **Browser AI:** ONNX Runtime Web (WebGPU, WASM fallback)
-- **Backend:** Cloudflare Workers
-- **Order metadata:** Cloudflare D1 — зөвхөн захиалга, төлбөрийн төлөв, татах эрх
-- **Payment:** Wire.mn Hosted Checkout + signed webhook
+- React + TypeScript + Vite
+- ONNX Runtime Web
+- Cloudflare Pages Functions
+- Cloudflare D1
+- Wire.mn Hosted Checkout
 
-## Нууцлал ба төлбөрийн аюулгүй байдал
+## Локал хөгжүүлэлт
 
-- Зургийн файл, пикселийн өгөгдөл backend рүү илгээхгүй.
-- Wire API key болон webhook secret зөвхөн Worker-ийн secret-д байна.
-- Webhook-ийн raw body дээрх HMAC-SHA256 гарын үсгийг шалгана.
-- Event ID давхардлыг хааж, төлбөрийн төлөв, дүн (**3000 MNT**), валют (**MNT**) болон захиалгыг сервер талд тулгана.
-- Browser redirect-ийг дангаар нь төлбөрийн баталгаа гэж үзэхгүй.
-- Төлбөр хийгдэх хүртэл сэргээсэн зураг хэрэглэгчийн төхөөрөмжийн санах ойд түр хадгалагдана. Tab хаагдвал ажлаа алдаж болзошгүйг UI-д анхааруулна.
+```bash
+npm install
+npm run dev
+```
 
-## Хөгжүүлэлтийн төлөв
+Build:
 
-Одоогоор суурь шаардлага, архитектур тодорхойлогдсон. AI загварын лиценз, хэмжээ, browser compatibility, бодит төхөөрөмж дээрх чанар/гүйцэтгэл болон Wire.mn merchant эрхийг туршиж баталгаажуулсны дараа production release хийнэ.
+```bash
+npm run build
+```
 
-## Ашиглах
+Pages Functions болон D1 binding-тай локал preview:
 
-Cloudflare Pages дээр frontend-ийг, Cloudflare Workers дээр төлбөрийн API болон webhook-ийг тусад нь байршуулна. Нууц түлхүүрүүдийг repository-д commit хийхгүй.
+```bash
+npm run pages:dev
+```
+
+## Cloudflare тохиргоо
+
+1. Cloudflare Dashboard дээр oldpix-orders нэртэй D1 database үүсгэнэ.
+2. Database ID-г wrangler.toml доторх REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID утгаар солино.
+3. Schema migration ажиллуулна:
+
+```bash
+npx wrangler d1 migrations apply oldpix-orders --remote
+```
+
+4. Cloudflare Pages project-ийг GitHub boroogemini/oldpix репозиторт холбоно.
+5. Build command: npm run build; output directory: dist.
+6. Pages Functions D1 binding нэр заавал DB, database нь oldpix-orders байна.
+7. Production environment variables/secrets:
+
+```bash
+npx wrangler pages secret put WIRE_API_KEY
+npx wrangler pages secret put WIRE_WEBHOOK_SECRET
+```
+
+APP_ORIGIN нь wrangler.toml дахь production домэйнтэй яг таарах ёстой. Preview environment-д тусдаа test configuration ашиглана. WIRE_API_KEY, WIRE_WEBHOOK_SECRET-ийг frontend env, GitHub эсвэл VITE_ хувьсагчид хэзээ ч хийж болохгүй.
+
+## Wire.mn тохиргоо
+
+- Wire merchant бүртгэл, KYC болон төлбөрийн операторын идэвхжүүлэлт хийгдсэн байна.
+- Wire dashboard-аас тухайн project-ийн live API key болон webhook signing secret авна.
+- Webhook URL: https://YOUR_DOMAIN/api/webhooks/wire.
+- payment_intent.succeeded event-ийг идэвхжүүлнэ.
+- Wire dashboard-ийн signed test ping-ээр webhook signature шалгалтыг баталгаажуулна.
+- Hosted checkout ашиглаж байгаа тул PaymentIntent confirm endpoint-ийг давхар дуудахгүй.
+
+## Browser AI model
+
+VITE_RESTORATION_MODEL_URL тохируулж ONNX загварын HTTPS URL өгч болно. Одоогийн adapter нь дараах model contract хүлээнэ:
+
+- Input: float32 RGB tensor, shape [1, 3, 512, 512], pixel range [0, 1].
+- Output: float32 RGB tensor, shape [1, 3, H, W].
+- Model нь browser ONNX Runtime Web дээр ажиллах ёстой.
+- Model hosting нь browser CORS болон cross-origin шаардлагыг хангах ёстой.
+
+Энэ repo-д баталгаажсан neural restoration weights ороогүй. Тодорхой model сонгохдоо лиценз, commercial-use эрх, model card, preprocessing, output format, browser/WebGPU compatibility болон бодит хуучин зураг дээрх чанарыг заавал туршина. Тохирох загваргүй үед fallback нь локал image enhancement гэж UI-д ил тод тэмдэглэгдэнэ. Model-ийн файлыг серверт upload хийхгүй, browser татаж авна.
+
+## Нууцлал ба хязгаарлалт
+
+- Зургийн файл API endpoint руу явдаггүй.
+- D1-д зөвхөн order ID, PaymentIntent/checkout ID, amount, currency, status, timestamps хадгална.
+- Payment checkout шинэ tab-д нээгддэг; төлбөр дуустал эх tab-аа хааж болохгүй. Browser refresh/crash хийвэл memory-д байсан боловсруулсан зураг алдагдаж болно.
+- Энэ загвар нь төхөөрөмжийн хүчин чадал, browser memory, model download bandwidth-аас хамаарна.
+- Cloudflare Free quota болон Wire.mn гүйлгээний шимтгэл/операторын нөхцөл үйлчилнэ.
+- Live merchant credentials, webhook test, domain, model weights болон бодит browser/device QA хийгдээгүй бол production төлбөрийг идэвхжүүлж болохгүй.
+
+## Security checklist
+
+- [ ] D1 database ID-г бодитоор тохируулах
+- [ ] Wire live API key болон webhook secret-ийг Cloudflare Secrets-д оруулах
+- [ ] Wire dashboard дээр webhook endpoint тохируулах, signed ping амжилттай болгох
+- [ ] Production domain/APP_ORIGIN тааруулах
+- [ ] Баталгаажсан, лицензтэй ONNX model сонгох эсвэл fallback ашиглаж байгаагаа ил тод хадгалах
+- [ ] Chrome, Safari, Firefox, Android/iOS бодит төхөөрөмж дээр зураг болон төлбөрийн урсгалыг турших
+- [ ] Privacy policy, terms, merchant contact, refund/support мэдээллийг нийтлэх
+
+## License
+
+Энэ repository-ийн кодын лицензийг эзэмшигч тусад нь сонгож нийтэлнэ. Гуравдагч талын AI model болон weights нь өөрийн тусдаа лицензтэй байна.
