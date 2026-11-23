@@ -4,7 +4,6 @@ import { createOrder, getOrder } from "./lib/api";
 import { restoreImage, type RestoreResult } from "./lib/restore";
 
 type Phase = "idle" | "ready" | "processing" | "done" | "payment" | "paid";
-const money = new Intl.NumberFormat("mn-MN");
 
 export default function App() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -157,6 +156,6 @@ export default function App() {
 
       <section className="faq-section" id="faq"><div className="section-heading"><div className="eyebrow">ТУСЛАМЖ</div><h2>Түгээмэл <em>асуултууд.</em></h2></div><div className="faq-list">{faqs.map(([q,a],i)=><div className="faq-item" key={q}><button onClick={()=>setFaqOpen(faqOpen===i?null:i)}><b>{q}</b><ChevronDown className={faqOpen===i?"rotated":""}/></button>{faqOpen===i&&<p>{a}</p>}</div>)}</div></section>
     </main>
-    <footer><a className="brand" href="#"><span className="brand-mark"><Sparkles size={18}/></span><span>OLDPix<span className="brand-ai"> AI</span><small>ХУУЧИН ДУРСАМЖИЙГ ШИНЭЧИЛНЭ</small></span></a><span>© {new Date().getFullYear()} OLDPix AI. Бүх эрх хуулиар хамгаалагдсан.</span><a href="mailto:hello@oldpix.mn">Холбоо барих</a></footer>
+    <footer><a className="brand" href="#"><span className="brand-mark"><Sparkles size={18}/></span><span>OLDPix<span className="brand-ai"> AI</span><small>ХУУЧИН ДУРСАМЖИЙГ ШИНЭЧИЛНЭ</small></span></a><span>© {new Date().getFullYear()} OLDPix AI. Бүх эрх хуулиар хамгаалагдсан.</span><a href="#faq">Тусламж</a></footer>
   </div>;
 }
