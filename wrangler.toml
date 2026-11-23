@@ -9,4 +9,4 @@ database_id = "e19d7e6b-4df3-4bc6-b958-1526e60ccf06"
 migrations_dir = "migrations"
 
 [vars]
-APP_ORIGIN = "https://oldpix.mn"
+APP_ORIGIN = "https://oldpix-ai.pages.dev"
