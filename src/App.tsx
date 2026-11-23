@@ -11,6 +11,7 @@ export default function App() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
   const [result, setResult] = useState<RestoreResult | null>(null);
+  const [resultPreview, setResultPreview] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -20,6 +21,7 @@ export default function App() {
   const [faqOpen, setFaqOpen] = useState<number | null>(0);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  useEffect(() => () => { if (resultPreview) URL.revokeObjectURL(resultPreview); }, [resultPreview]);
 
   function selectFile(next?: File) {
     if (!next) return;
@@ -35,7 +37,7 @@ export default function App() {
     setBusy(true); setError(""); setPhase("processing");
     try {
       const restored = await restoreImage(file);
-      setResult(restored); setPhase("done");
+      setResult(restored); setResultPreview(URL.createObjectURL(restored.blob)); setPhase("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Зураг сэргээхэд алдаа гарлаа.");
       setPhase("ready");
@@ -139,7 +141,7 @@ export default function App() {
           </div>
           <div className="result-panel">
             <div className="result-head"><b>Сэргээсэн зураг</b><span className={phase === "done" || phase === "paid" ? "status-ready" : "status-wait"}>{phase === "done" || phase === "paid" ? "БЭЛЭН" : "ХҮЛЭЭЖ БАЙНА"}</span></div>
-            {result && preview ? <div className="result-image"><img src={URL.createObjectURL(result.blob)} alt="Сэргээсэн зураг"/><span>{result.mode === "onnx" ? "AI ЗАГВАР" : "ЛОКАЛ САЙЖРУУЛАЛТ"}</span></div> : <div className="empty-result"><span className="empty-icon"><WandSparkles size={26}/></span><b>Таны сэргээсэн зураг энд харагдана</b><small>Эхлээд зургaa сонгоод боловсруулна уу.</small></div>}
+            {result && preview ? <div className="result-image"><img src={resultPreview} alt="Сэргээсэн зураг"/><span>{result.mode === "onnx" ? "AI ЗАГВАР" : "ЛОКАЛ САЙЖРУУЛАЛТ"}</span></div> : <div className="empty-result"><span className="empty-icon"><WandSparkles size={26}/></span><b>Таны сэргээсэн зураг энд харагдана</b><small>Эхлээд зургaa сонгоод боловсруулна уу.</small></div>}
             {result && <div className="result-details"><span>{result.width} × {result.height} px</span><span>PNG · Төхөөрөмж дээр</span></div>}
             {phase === "done" && <div className="payment-card"><div><span className="payment-label">HD ТАТАХ ЭРХ</span><strong>3,000₮</strong><small>Нэг зураг · Нэг удаагийн төлбөр</small></div><button className="primary-btn" onClick={startPayment} disabled={busy}>{busy ? "Үүсгэж байна…" : <>Төлбөр төлөх <ArrowRight size={17}/></>}</button></div>}
             {phase === "payment" && <div className="payment-wait"><span className="spinner"/><b>{paymentState}</b><small>Wire.mn төлбөрийн цонхонд гүйлгээгээ хийнэ үү. Энэ хуудсыг хааж болохгүй.</small><a href={checkoutUrl} target="_blank" rel="noreferrer">Төлбөрийн цонхыг дахин нээх <ArrowRight size={14}/></a></div>}
