@@ -20,7 +20,10 @@ export const onRequestPost = async ({ request, env }: Context): Promise<Response
   const intentId = String(object.id || "");
   const metadata = object.metadata as Record<string, unknown> | undefined;
   const orderId = String(metadata?.order_id || "");
-  if (!intentId || !orderId) {
+  if (event.type === "payment_intent.succeeded" && (!intentId || !orderId)) {
+    return new Response("Missing payment metadata", { status: 400 });
+  }
+  if (event.type !== "payment_intent.succeeded" && (!intentId || !orderId)) {
     await env.DB.prepare("INSERT OR IGNORE INTO webhook_events (event_id, event_type, received_at) VALUES (?, ?, ?)")
       .bind(event.id, event.type, new Date().toISOString()).run();
     return new Response("ok", { status: 200 });
