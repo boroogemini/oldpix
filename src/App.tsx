@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, Check, ImagePlus, LockKeyhole, Moon, ShieldCheck, Sparkles, Sun, UploadCloud, WandSparkles, X } from "lucide-react";
 import { createOrder, getOrder } from "./lib/api";
 import { restoreImage, type RestoreResult } from "./lib/restore";
+import type { PhotoAIOptions } from "./lib/old-photo-ai";
 
 type Phase = "idle" | "ready" | "processing" | "done" | "payment" | "paid";
 
@@ -15,6 +16,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [compare, setCompare] = useState(50);
+  const [aiOptions, setAiOptions] = useState<PhotoAIOptions>({ scratches: true, colorize: true, upscale: true });
   const [error, setError] = useState("");
   const [orderId, setOrderId] = useState("");
   const [checkoutUrl, setCheckoutUrl] = useState("");
@@ -41,7 +43,7 @@ export default function App() {
     setBusy(true); setError(""); setPhase("processing");
     try {
       setProgress(2);
-      const restored = await restoreImage(file, (value) => setProgress(value));
+      const restored = await restoreImage(file, aiOptions, (value) => setProgress(value));
       setResult(restored); setResultPreview(URL.createObjectURL(restored.blob)); setPhase("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Зураг сэргээхэд алдаа гарлаа."); setPhase("ready");
@@ -86,7 +88,7 @@ export default function App() {
   }
   function reset() {
     if (preview) URL.revokeObjectURL(preview);
-    setFile(null); setPreview(""); setResult(null); setResultPreview(""); setPhase("idle"); setProgress(0); setCompare(50);
+    setFile(null); setPreview(""); setResult(null); setResultPreview(""); setPhase("idle"); setProgress(0); setCompare(50); setAiOptions({ scratches: true, colorize: true, upscale: true });
     setOrderId(""); setCheckoutUrl(""); setError("");
   }
   return <div className="app-shell">
@@ -106,16 +108,32 @@ export default function App() {
           <span className="upload-icon"><UploadCloud size={27}/></span><b>Зургаа энд чирж оруулна уу</b><span>эсвэл төхөөрөмжөөсөө сонгоно уу</span><span className="browse-btn">Зураг сонгох <ImagePlus size={16}/></span>
         </button> : <div className="selected-file"><div className="selected-top"><b>Эх зураг</b><button className="icon-btn" onClick={reset} aria-label="Зураг солих"><X size={17}/></button></div><img src={preview} alt="Оруулсан эх зураг"/><div className="file-meta"><span>{file.name}</span><span>{(file.size/1024/1024).toFixed(1)} MB</span></div></div>}
         <input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={e => selectFile(e.target.files?.[0])}/>
+        <div className="options-head">
+          <div><span className="step-tag">02 / AI ЗАСВАРЫН СОНГОЛТ</span><h2>Ямар засвар хийх вэ?</h2><p>Хүссэн AI үйлдлээ сонгоно уу. Нэгээс олон сонгож болно.</p></div>
+          <button className="reset-options" type="button" onClick={() => setAiOptions({ scratches: true, colorize: true, upscale: true })}>Бүгдийг сонгох</button>
+        </div>
+        <div className="choice-grid">
+          <button type="button" className={`choice-card ${aiOptions.scratches ? "is-selected" : ""}`} aria-pressed={aiOptions.scratches} onClick={() => setAiOptions(v => ({ ...v, scratches: !v.scratches }))}>
+            <span className="choice-symbol">✧</span><span className="choice-copy"><b>Зураас, гэмтэл засах</b><small>BOPBTL илрүүлэлт + LaMa нөхөлт</small></span><span className="choice-check">{aiOptions.scratches ? <Check size={13}/> : null}</span>
+          </button>
+          <button type="button" className={`choice-card ${aiOptions.colorize ? "is-selected" : ""}`} aria-pressed={aiOptions.colorize} onClick={() => setAiOptions(v => ({ ...v, colorize: !v.colorize }))}>
+            <span className="choice-symbol">◉</span><span className="choice-copy"><b>Хар цагаан өнгөт болгох</b><small>DDColor AI өнгө сэргээх</small></span><span className="choice-check">{aiOptions.colorize ? <Check size={13}/> : null}</span>
+          </button>
+          <button type="button" className={`choice-card ${aiOptions.upscale ? "is-selected" : ""}`} aria-pressed={aiOptions.upscale} onClick={() => setAiOptions(v => ({ ...v, upscale: !v.upscale }))}>
+            <span className="choice-symbol">⤢</span><span className="choice-copy"><b>Дүрс тодруулж 4× томруулах</b><small>Real-ESRGAN x4plus</small></span><span className="choice-check">{aiOptions.upscale ? <Check size={13}/> : null}</span>
+          </button>
+        </div>
+        <div className="model-privacy"><ShieldCheck size={17}/><span><b>Зөвхөн сонгосон AI загварууд ажиллана</b><small>Зураг таны browser дотор боловсруулагдана. Анхны удаа сонгосон загварууд татагдаж cache-д хадгалагдана.</small></span></div>
         <div className="ai-engine-card">
           <div className="ai-engine-icon"><Sparkles size={19}/></div>
-          <div className="ai-engine-copy"><span className="step-tag">02 / OPEN-SOURCE AI</span><h2>Автомат AI сэргээх</h2><p>Microsoft BOPBTL · LaMa · DDColor · Real-ESRGAN</p><small>AI зураас, тоосон гэмтлийг илрүүлж засварлана. Хар цагаан зургийг автоматаар өнгөт болгож, эцэст нь 4× нягтралтай сайжруулна.</small></div>
+          <div className="ai-engine-copy"><span className="step-tag">OPEN-SOURCE MODELS</span><h2>Локал AI зураг сэргээх</h2><p>BOPBTL · LaMa · DDColor · Real-ESRGAN</p><small>Таны сонголтын дагуу нээлттэй эхийн загваруудыг ажиллуулна.</small></div>
           <span className="model-status">LOCAL AI</span>
         </div>
-        <div className="model-privacy"><ShieldCheck size={17}/><span><b>Нээлттэй эхийн 4 AI загвар · Зураг төхөөрөмжөөс гарахгүй</b><small>Анхны хэрэглээнд загварууд (~320 MB) татагдаж browser-д хадгалагдана. Өнгөт зурагны өнгийг хадгалж, хар цагаан зургийг DDColor-оор өнгөт болгоно.</small></span></div>
+        
         {error && <div className="error-box">{error}</div>}
-        <button className="primary-btn full" onClick={processPhoto} disabled={!file || busy || phase === "payment" || phase === "paid"}>{busy ? <><span className="spinner"/> Боловсруулж байна…</> : <><WandSparkles size={18}/> Зургийг сэргээх</>}</button>
-        <div className="local-note"><LockKeyhole size={14}/> Зураг серверт илгээгдэхгүй, таны browser дотор боловсруулагдана.</div>
-        {busy && phase === "processing" && <div className="progress-card"><div className="progress-top"><b>AI боловсруулалт</b><span>{Math.round(progress)}%</span></div><div className="progress-track"><i style={{ width: `${progress}%` }}/></div><small>AI гэмтэл засвар → өнгө сэргээх → 4× чанарын сайжруулалт.</small></div>}
+        <button className="primary-btn full" onClick={processPhoto} disabled={!file || busy || phase === "payment" || phase === "paid" || !Object.values(aiOptions).some(Boolean)}>{busy ? <><span className="spinner"/> Боловсруулж байна…</> : <><WandSparkles size={18}/> Зургийг сэргээх</>}</button>
+        <div className="local-note"><LockKeyhole size={14}/> Зураг серверт илгээгдэхгүй, таны browser дотор боловсруулагдана.</div>{!Object.values(aiOptions).some(Boolean) && <div className="error-box">Эхлээд дор хаяж нэг AI засвар сонгоно уу.</div>}
+        {busy && phase === "processing" && <div className="progress-card"><div className="progress-top"><b>AI боловсруулалт</b><span>{Math.round(progress)}%</span></div><div className="progress-track"><i style={{ width: `${progress}%` }}/></div><small>{[aiOptions.scratches && "Гэмтэл засвар", aiOptions.colorize && "Өнгө сэргээх", aiOptions.upscale && "4× чанар"].filter(Boolean).join(" → ")}</small></div>}
         <div className="divider-line"/>
         <div className="result-head"><div><span className="step-tag">03 / ҮР ДҮН</span><h2>Сэргээсэн зураг</h2></div><span className={phase === "done" || phase === "paid" ? "status-ready" : "status-wait"}>{phase === "done" || phase === "paid" ? "БЭЛЭН" : phase === "processing" ? "БОЛОВСРУУЛЖ БАЙНА" : "ХҮЛЭЭЖ БАЙНА"}</span></div>
         {result && resultPreview ? <div className="compare-wrap"><div className="compare-view"><img className="compare-after" src={resultPreview} alt="AI-аар сэргээсэн зураг"/><div className="compare-before" style={{ clipPath: `inset(0 ${100 - compare}% 0 0)` }}><img src={preview} alt="Эх зураг"/></div><span className="compare-label before-label">ӨМНӨ</span><span className="compare-label after-label">ДАРАА</span><div className="compare-divider" style={{ left: `${compare}%` }} /></div><input className="compare-range" aria-label="Өмнө ба дараах зургийг харьцуулах" type="range" min="0" max="100" value={compare} onChange={e => setCompare(Number(e.target.value))}/><div className="compare-hint">Харьцуулахын тулд гулсуурыг хөдөлгөнө үү</div></div> : <div className="empty-result"><span className="empty-icon"><WandSparkles size={25}/></span><b>Таны сэргээсэн зураг энд гарна</b><small>Зургаа оруулаад сэргээх товчийг дарна уу.</small></div>}
