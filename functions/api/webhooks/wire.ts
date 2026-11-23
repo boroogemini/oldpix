@@ -40,7 +40,7 @@ export const onRequestPost = async ({ request, env }: Context): Promise<Response
 
   const update = await env.DB.prepare("UPDATE orders SET status = 'paid', paid_at = ? WHERE id = ? AND payment_intent_id = ? AND amount = 3000 AND currency = 'MNT' AND status = 'pending'")
     .bind(new Date().toISOString(), orderId, intentId).run();
-  if (!update.success) return new Response("Could not update order", { status: 500 });
+  if (!update.success || update.meta.changes !== 1) return new Response("Order not found or already fulfilled", { status: 409 });
   await env.DB.prepare("INSERT OR IGNORE INTO webhook_events (event_id, event_type, received_at) VALUES (?, ?, ?)")
     .bind(event.id, event.type, new Date().toISOString()).run();
   return new Response("ok", { status: 200 });
