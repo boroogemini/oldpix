@@ -1,114 +1,192 @@
 import type * as ort from "onnxruntime-web/wasm";
 
-export type RestoreResult = { blob: Blob; mode: "onnx" | "local"; width: number; height: number };
+export type RestoreResult = {
+  blob: Blob;
+  mode: "onnx";
+  width: number;
+  height: number;
+};
 
-// Real-ESRGAN general x4v3 ONNX export. BSD-3-Clause model weights.
-// Dynamic graph: use WASM provider for reliable arbitrary input dimensions.
-const MODEL_URL = (import.meta.env.VITE_RESTORATION_MODEL_URL as string | undefined)
-  || "https://huggingface.co/thisismert/real-esrgan-onnx/resolve/main/onnx/realesr-general-x4v3.onnx";
+// Real-ESRGAN x4plus: higher-detail general photo restoration/upscaling.
+// Free BSD-3-Clause weights, exported to ONNX for local browser inference.
+const MODEL_URL =
+  "https://huggingface.co/thisismert/real-esrgan-onnx/resolve/main/onnx/RealESRGAN_x4plus_fp16.onnx";
+
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
-async function getSession() {
+async function getSession(): Promise<ort.InferenceSession> {
   if (!sessionPromise) {
-    // Import the WASM-only entry point. The default entry point also bundles
-    // the JSEP/WebGPU runtime, whose WASM binary exceeds Cloudflare Pages'
-    // 25 MiB per-file upload limit. OLDPix uses the WASM execution provider only.
-    sessionPromise = import("onnxruntime-web/wasm").then((ortRuntime) =>
-      ortRuntime.InferenceSession.create(MODEL_URL, {
-        executionProviders: ["wasm"],
-        graphOptimizationLevel: "all",
-      })
-    ).catch((error) => {
-      sessionPromise = null;
-      throw error;
-    });
+    sessionPromise = import("onnxruntime-web/wasm")
+      .then((runtime) =>
+        runtime.InferenceSession.create(MODEL_URL, {
+          executionProviders: ["wasm"],
+          graphOptimizationLevel: "all",
+        }),
+      )
+      .catch((error) => {
+        sessionPromise = null;
+        throw new Error(
+          "Үнэгүй AI загварыг татаж эсвэл эхлүүлж чадсангүй. Интернэт холболтоо шалгаад дахин оролдоно уу.",
+          { cause: error },
+        );
+      });
   }
   return sessionPromise;
 }
 
 function canvasBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Зураг үүсгэж чадсангүй.")), "image/png"));
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) =>
+        blob
+          ? resolve(blob)
+          : reject(new Error("Сэргээсэн зургийг үүсгэж чадсангүй.")),
+      "image/png",
+    );
+  });
 }
 
-async function localEnhance(source: HTMLImageElement, maxSide = 2400): Promise<RestoreResult> {
-  const scale = Math.min(2, maxSide / Math.max(source.naturalWidth, source.naturalHeight));
+function makeInputTensor(
+  runtime: typeof import("onnxruntime-web/wasm"),
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+): InstanceType<typeof runtime.Tensor> {
+  const plane = width * height;
+  const rgb = new Float32Array(plane * 3);
+  for (let i = 0; i < plane; i++) {
+    rgb[i] = data[i * 4] / 255;
+    rgb[plane + i] = data[i * 4 + 1] / 255;
+    rgb[plane * 2 + i] = data[i * 4 + 2] / 255;
+  }
+  return new runtime.Tensor("float32", rgb, [1, 3, height, width]);
+}
+
+async function restoreTiled(source: HTMLImageElement): Promise<RestoreResult> {
+  const runtime = await import("onnxruntime-web/wasm");
+  const session = await getSession();
+
+  // Keep browser memory bounded. 4x output is capped at about 32 megapixels.
+  const maxInputPixels = 2_000_000;
+  const scale = Math.min(
+    1,
+    Math.sqrt(maxInputPixels / (source.naturalWidth * source.naturalHeight)),
+  );
   const width = Math.max(1, Math.round(source.naturalWidth * scale));
   const height = Math.max(1, Math.round(source.naturalHeight * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) throw new Error("Таны browser зураг боловсруулах боломжгүй байна.");
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(source, 0, 0, width, height);
-  const image = ctx.getImageData(0, 0, width, height);
-  const px = image.data;
-  // Local-only enhancement: mild contrast and luminance sharpening.
-  // This fallback is deterministic image processing, not a neural AI model.
-  const copy = new Uint8ClampedArray(px);
-  const contrast = 1.075;
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      const i = (y * width + x) * 4;
-      for (let c = 0; c < 3; c++) {
-        const center = copy[i + c];
-        const avg = (copy[i - 4 + c] + copy[i + 4 + c] + copy[i - width * 4 + c] + copy[i + width * 4 + c]) / 4;
-        const sharpened = center + (center - avg) * 0.28;
-        px[i + c] = Math.max(0, Math.min(255, (sharpened - 128) * contrast + 128));
-      }
-    }
-  }
-  ctx.putImageData(image, 0, 0);
-  return { blob: await canvasBlob(canvas), mode: "local", width, height };
-}
 
-async function neuralEnhance(source: HTMLImageElement): Promise<RestoreResult> {
-  const ortRuntime = await import("onnxruntime-web/wasm");
-  const session = await getSession();
-  // Keep browser memory bounded. The x4 model returns up to 2048px on its longest side.
-  const scale = Math.min(1, 512 / Math.max(source.naturalWidth, source.naturalHeight));
-  const width = Math.max(4, Math.round(source.naturalWidth * scale / 4) * 4);
-  const height = Math.max(4, Math.round(source.naturalHeight * scale / 4) * 4);
-  const inputCanvas = document.createElement("canvas");
-  inputCanvas.width = width; inputCanvas.height = height;
-  const inputCtx = inputCanvas.getContext("2d", { willReadFrequently: true });
-  if (!inputCtx) throw new Error("AI зураг боловсруулах боломжгүй байна.");
-  inputCtx.imageSmoothingEnabled = true;
-  inputCtx.imageSmoothingQuality = "high";
-  inputCtx.drawImage(source, 0, 0, width, height);
-  const data = inputCtx.getImageData(0, 0, width, height).data;
-  const input = new Float32Array(3 * width * height);
-  for (let i = 0; i < width * height; i++) {
-    input[i] = data[i * 4] / 255;
-    input[width * height + i] = data[i * 4 + 1] / 255;
-    input[2 * width * height + i] = data[i * 4 + 2] / 255;
+  const sourceCanvas = document.createElement("canvas");
+  sourceCanvas.width = width;
+  sourceCanvas.height = height;
+  const sourceContext = sourceCanvas.getContext("2d", {
+    willReadFrequently: true,
+  });
+  if (!sourceContext) {
+    throw new Error("Таны browser зураг боловсруулах боломжгүй байна.");
   }
+  sourceContext.imageSmoothingEnabled = true;
+  sourceContext.imageSmoothingQuality = "high";
+  sourceContext.drawImage(source, 0, 0, width, height);
+
+  const outputCanvas = document.createElement("canvas");
+  outputCanvas.width = width * 4;
+  outputCanvas.height = height * 4;
+  const outputContext = outputCanvas.getContext("2d");
+  if (!outputContext) {
+    throw new Error("AI үр дүнг дүрслэх боломжгүй байна.");
+  }
+
+  // Overlapping tiles avoid running the full high-resolution image at once.
+  const coreSize = 160;
+  const overlap = 16;
   const inputName = session.inputNames[0];
   const outputName = session.outputNames[0];
-  const output = await session.run({
-    [inputName]: new ortRuntime.Tensor("float32", input, [1, 3, height, width]),
-  });
-  const tensor = output[outputName];
-  if (!tensor || tensor.dims.length !== 4 || tensor.dims[1] !== 3) {
-    throw new Error("AI загварын гаралтын формат тохирохгүй байна.");
+
+  for (let coreY = 0; coreY < height; coreY += coreSize) {
+    const coreHeight = Math.min(coreSize, height - coreY);
+    for (let coreX = 0; coreX < width; coreX += coreSize) {
+      const coreWidth = Math.min(coreSize, width - coreX);
+      const tileX = Math.max(0, coreX - overlap);
+      const tileY = Math.max(0, coreY - overlap);
+      const tileRight = Math.min(width, coreX + coreWidth + overlap);
+      const tileBottom = Math.min(height, coreY + coreHeight + overlap);
+      const tileWidth = tileRight - tileX;
+      const tileHeight = tileBottom - tileY;
+
+      const tileCanvas = document.createElement("canvas");
+      tileCanvas.width = tileWidth;
+      tileCanvas.height = tileHeight;
+      const tileContext = tileCanvas.getContext("2d", {
+        willReadFrequently: true,
+      });
+      if (!tileContext) {
+        throw new Error("Зургийн хэсгийг боловсруулах боломжгүй байна.");
+      }
+      tileContext.drawImage(
+        sourceCanvas,
+        tileX,
+        tileY,
+        tileWidth,
+        tileHeight,
+        0,
+        0,
+        tileWidth,
+        tileHeight,
+      );
+      const pixels = tileContext.getImageData(
+        0,
+        0,
+        tileWidth,
+        tileHeight,
+      ).data;
+      const input = makeInputTensor(runtime, pixels, tileWidth, tileHeight);
+      const outputs = await session.run({ [inputName]: input });
+      const tensor = outputs[outputName];
+      if (
+        !tensor ||
+        tensor.dims.length !== 4 ||
+        tensor.dims[1] !== 3 ||
+        tensor.dims[2] !== tileHeight * 4 ||
+        tensor.dims[3] !== tileWidth * 4
+      ) {
+        throw new Error("AI загварын гаралтын хэмжээ тохирохгүй байна.");
+      }
+
+      const values = tensor.data as Float32Array;
+      const outputWidth = tileWidth * 4;
+      const outputHeight = tileHeight * 4;
+      const outputPlane = outputWidth * outputHeight;
+      const cropLeft = (coreX - tileX) * 4;
+      const cropTop = (coreY - tileY) * 4;
+      const coreImage = new ImageData(coreWidth * 4, coreHeight * 4);
+
+      for (let y = 0; y < coreHeight * 4; y++) {
+        for (let x = 0; x < coreWidth * 4; x++) {
+          const sourceIndex =
+            (cropTop + y) * outputWidth + cropLeft + x;
+          const targetIndex = (y * coreWidth * 4 + x) * 4;
+          coreImage.data[targetIndex] = Math.round(
+            Math.max(0, Math.min(1, values[sourceIndex])) * 255,
+          );
+          coreImage.data[targetIndex + 1] = Math.round(
+            Math.max(0, Math.min(1, values[outputPlane + sourceIndex])) * 255,
+          );
+          coreImage.data[targetIndex + 2] = Math.round(
+            Math.max(0, Math.min(1, values[outputPlane * 2 + sourceIndex])) * 255,
+          );
+          coreImage.data[targetIndex + 3] = 255;
+        }
+      }
+      outputContext.putImageData(coreImage, coreX * 4, coreY * 4);
+    }
   }
-  const outH = tensor.dims[2];
-  const outW = tensor.dims[3];
-  const values = tensor.data as Float32Array;
-  const plane = outW * outH;
-  const outputCanvas = document.createElement("canvas");
-  outputCanvas.width = outW; outputCanvas.height = outH;
-  const outputCtx = outputCanvas.getContext("2d");
-  if (!outputCtx) throw new Error("AI үр дүнг дүрслэх боломжгүй байна.");
-  const image = outputCtx.createImageData(outW, outH);
-  for (let i = 0; i < plane; i++) {
-    image.data[i * 4] = Math.max(0, Math.min(255, values[i] * 255));
-    image.data[i * 4 + 1] = Math.max(0, Math.min(255, values[plane + i] * 255));
-    image.data[i * 4 + 2] = Math.max(0, Math.min(255, values[2 * plane + i] * 255));
-    image.data[i * 4 + 3] = 255;
-  }
-  outputCtx.putImageData(image, 0, 0);
-  return { blob: await canvasBlob(outputCanvas), mode: "onnx", width: outW, height: outH };
+
+  return {
+    blob: await canvasBlob(outputCanvas),
+    mode: "onnx",
+    width: outputCanvas.width,
+    height: outputCanvas.height,
+  };
 }
 
 export async function restoreImage(file: File): Promise<RestoreResult> {
@@ -118,15 +196,10 @@ export async function restoreImage(file: File): Promise<RestoreResult> {
     source.decoding = "async";
     source.src = url;
     await source.decode();
-    if (source.naturalWidth * source.naturalHeight > 36_000_000) {
-      throw new Error("Зураг хэт том байна. 36 мегапикселээс бага зураг сонгоно уу.");
+    if (!source.naturalWidth || !source.naturalHeight) {
+      throw new Error("Зургийн файлыг уншиж чадсангүй.");
     }
-    try {
-      return await neuralEnhance(source);
-    } catch {
-      // Model download/runtime failures fall back to local enhancement; no image is uploaded.
-      return await localEnhance(source);
-    }
+    return await restoreTiled(source);
   } finally {
     URL.revokeObjectURL(url);
   }
