@@ -1,12 +1,13 @@
 interface Env {
   DB: D1Database;
   WIRE_API_KEY: string;
+  WIRE_QPAY_OPERATOR_ID: string;
   APP_ORIGIN: string;
 }
 type Context = { request: Request; env: Env };
 
 export const onRequestPost = async ({ request, env }: Context): Promise<Response> => {
-  if (!env.WIRE_API_KEY) return json({ error: "Төлбөрийн систем хараахан тохируулагдаагүй байна." }, 503);
+  if (!env.WIRE_API_KEY || !env.WIRE_QPAY_OPERATOR_ID) return json({ error: "QPay төлбөрийн суваг хараахан тохируулагдаагүй байна." }, 503);
   const origin = request.headers.get("Origin");
   if (origin && new URL(origin).origin !== new URL(env.APP_ORIGIN).origin) return json({ error: "Хүсэлтийг зөвшөөрсөнгүй." }, 403);
   const body = await request.json().catch(() => null) as { product?: string } | null;
@@ -28,6 +29,8 @@ export const onRequestPost = async ({ request, env }: Context): Promise<Response
       body: JSON.stringify({
         amount: 3000,
         currency: "MNT",
+        automatic_operator: false,
+        allowed_operators: [env.WIRE_QPAY_OPERATOR_ID],
         description: "OLDPix AI — HD зураг татах",
         metadata: { order_id: id, product: "restored-photo-hd" },
       }),
