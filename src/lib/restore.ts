@@ -76,9 +76,11 @@ function makeInputTensor(
   return new runtime.Tensor("float32", rgb, [1, 3, height, width]);
 }
 
-async function restoreTiled(source: HTMLImageElement): Promise<RestoreResult> {
+async function restoreTiled(source: HTMLImageElement, onProgress?: (value: number) => void): Promise<RestoreResult> {
+  onProgress?.(5);
   const runtime = await import("onnxruntime-web/wasm");
   const session = await getSession();
+  onProgress?.(18);
 
   // Keep browser memory bounded. 4x output is capped at about 32 megapixels.
   const maxInputPixels = 2_000_000;
@@ -115,6 +117,8 @@ async function restoreTiled(source: HTMLImageElement): Promise<RestoreResult> {
   const overlap = 16;
   const inputName = session.inputNames[0];
   const outputName = session.outputNames[0];
+  const totalTiles = Math.ceil(width / coreSize) * Math.ceil(height / coreSize);
+  let completedTiles = 0;
 
   for (let coreY = 0; coreY < height; coreY += coreSize) {
     const coreHeight = Math.min(coreSize, height - coreY);
@@ -192,6 +196,8 @@ async function restoreTiled(source: HTMLImageElement): Promise<RestoreResult> {
         }
       }
       outputContext.putImageData(coreImage, coreX * 4, coreY * 4);
+      completedTiles++;
+      onProgress?.(18 + (completedTiles / totalTiles) * 78);
     }
   }
 
@@ -203,17 +209,20 @@ async function restoreTiled(source: HTMLImageElement): Promise<RestoreResult> {
   };
 }
 
-export async function restoreImage(file: File): Promise<RestoreResult> {
+export async function restoreImage(file: File, onProgress?: (value: number) => void): Promise<RestoreResult> {
   const url = URL.createObjectURL(file);
   try {
     const source = new Image();
     source.decoding = "async";
     source.src = url;
     await source.decode();
+    onProgress?.(3);
     if (!source.naturalWidth || !source.naturalHeight) {
       throw new Error("Зургийн файлыг уншиж чадсангүй.");
     }
-    return await restoreTiled(source);
+    const result = await restoreTiled(source, onProgress);
+    onProgress?.(100);
+    return result;
   } finally {
     URL.revokeObjectURL(url);
   }
