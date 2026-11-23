@@ -10,19 +10,33 @@ export type RestoreResult = {
 // Real-ESRGAN x4plus: higher-detail general photo restoration/upscaling.
 // Free BSD-3-Clause weights, exported to ONNX for local browser inference.
 const MODEL_URL =
-  "https://huggingface.co/thisismert/real-esrgan-onnx/resolve/main/onnx/RealESRGAN_x4plus_fp16.onnx";
+  "https://huggingface.co/skillsafe-ai/realesrgan-x4plus/resolve/107475e49b7d46412cc966481efccc3500955801/model_fp16.onnx";
+const MODEL_SHA256 =
+  "38fe853c9cd8e1d6fd0ff387f2d43c51c1352feb9d7b3e2533d4c07b1b932f68";
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
 async function getSession(): Promise<ort.InferenceSession> {
   if (!sessionPromise) {
     sessionPromise = import("onnxruntime-web/wasm")
-      .then((runtime) =>
-        runtime.InferenceSession.create(MODEL_URL, {
+      .then(async (runtime) => {
+        const response = await fetch(MODEL_URL, { credentials: "omit" });
+        if (!response.ok) {
+          throw new Error(`Model download failed: ${response.status}`);
+        }
+        const modelBytes = await response.arrayBuffer();
+        const digest = await crypto.subtle.digest("SHA-256", modelBytes);
+        const actualHash = Array.from(new Uint8Array(digest))
+          .map((byte) => byte.toString(16).padStart(2, "0"))
+          .join("");
+        if (actualHash !== MODEL_SHA256) {
+          throw new Error("AI model checksum verification failed.");
+        }
+        return runtime.InferenceSession.create(new Uint8Array(modelBytes), {
           executionProviders: ["wasm"],
           graphOptimizationLevel: "all",
-        }),
-      )
+        });
+      })
       .catch((error) => {
         sessionPromise = null;
         throw new Error(
