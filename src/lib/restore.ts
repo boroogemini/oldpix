@@ -21,10 +21,18 @@ export type RestoreAdjustments = {
   saturation: number;
   warmth: number;
   sharpness: number;
+  scratchReduction: number;
+  colorize: number;
+  rotation: number;
+  flipHorizontal: boolean;
+  flipVertical: boolean;
+  grayscale: boolean;
+  sepia: number;
 };
 
 const DEFAULT_ADJUSTMENTS: RestoreAdjustments = {
   brightness: 0, contrast: 0, saturation: 0, warmth: 0, sharpness: 0,
+  scratchReduction: 0, colorize: 0, rotation: 0, flipHorizontal: false, flipVertical: false, grayscale: false, sepia: 0,
 };
 
 async function applyAdjustments(blob: Blob, settings: RestoreAdjustments): Promise<Blob> {
@@ -41,13 +49,33 @@ async function applyAdjustments(blob: Blob, settings: RestoreAdjustments): Promi
     context.filter = `brightness(${100 + settings.brightness}%) contrast(${100 + settings.contrast}%) saturate(${100 + settings.saturation}%)`;
     context.drawImage(image, 0, 0);
     context.filter = "none";
-    if (settings.warmth !== 0 || settings.sharpness > 0) {
+    if (settings.warmth !== 0 || settings.sharpness > 0 || settings.colorize > 0 || settings.grayscale || settings.sepia > 0) {
       const frame = context.getImageData(0, 0, canvas.width, canvas.height);
       const data = frame.data;
       const warmth = settings.warmth * 0.55;
       for (let i = 0; i < data.length; i += 4) {
-        data[i] = Math.max(0, Math.min(255, data[i] + warmth));
-        data[i + 2] = Math.max(0, Math.min(255, data[i + 2] - warmth));
+        let red = data[i], green = data[i + 1], blue = data[i + 2];
+        if (settings.grayscale || settings.colorize > 0 || settings.sepia > 0) {
+          const luma = 0.299 * red + 0.587 * green + 0.114 * blue;
+          if (settings.grayscale || settings.colorize > 0) red = green = blue = luma;
+          if (settings.sepia > 0) {
+            const amount = settings.sepia / 100;
+            const sr = Math.min(255, luma * 1.07 + 25), sg = Math.min(255, luma * 0.94 + 10), sb = Math.min(255, luma * 0.72);
+            red = red * (1 - amount) + sr * amount; green = green * (1 - amount) + sg * amount; blue = blue * (1 - amount) + sb * amount;
+          }
+          if (settings.colorize > 0) {
+            const t = settings.colorize / 100;
+            const shadow = Math.max(0, 1 - luma / 150);
+            const highlight = Math.max(0, (luma - 110) / 145);
+            const cr = luma * (1 - t) + (luma * 1.05 + 20 * highlight) * t;
+            const cg = luma * (1 - t) + (luma * 0.96 + 8 * highlight) * t;
+            const cb = luma * (1 - t) + (luma * 0.82 + 15 * shadow) * t;
+            red = cr; green = cg; blue = cb;
+          }
+        }
+        data[i] = Math.max(0, Math.min(255, red + warmth));
+        data[i + 1] = Math.max(0, Math.min(255, green));
+        data[i + 2] = Math.max(0, Math.min(255, blue - warmth));
       }
       if (settings.sharpness > 0) {
         const source = new Uint8ClampedArray(data);
@@ -64,7 +92,22 @@ async function applyAdjustments(blob: Blob, settings: RestoreAdjustments): Promi
       }
       context.putImageData(frame, 0, 0);
     }
-    return await canvasBlob(canvas);
+    let outputCanvas = canvas;
+    const rotation = ((settings.rotation % 360) + 360) % 360;
+    if (rotation !== 0 || settings.flipHorizontal || settings.flipVertical) {
+      const swap = rotation === 90 || rotation === 270;
+      const transformed = document.createElement("canvas");
+      transformed.width = swap ? canvas.height : canvas.width;
+      transformed.height = swap ? canvas.width : canvas.height;
+      const transformedContext = transformed.getContext("2d");
+      if (!transformedContext) throw new Error("Зургийг эргүүлэх боломжгүй байна.");
+      transformedContext.translate(transformed.width / 2, transformed.height / 2);
+      transformedContext.rotate(rotation * Math.PI / 180);
+      transformedContext.scale(settings.flipHorizontal ? -1 : 1, settings.flipVertical ? -1 : 1);
+      transformedContext.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+      outputCanvas = transformed;
+    }
+    return await canvasBlob(outputCanvas);
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -159,6 +202,26 @@ async function restoreTiled(source: HTMLImageElement, onProgress?: (value: numbe
   sourceContext.imageSmoothingEnabled = true;
   sourceContext.imageSmoothingQuality = "high";
   sourceContext.drawImage(source, 0, 0, width, height);
+  if (adjustments.scratchReduction > 0) {
+    const frame = sourceContext.getImageData(0, 0, width, height);
+    const original = new Uint8ClampedArray(frame.data);
+    const amount = adjustments.scratchReduction / 100;
+    // Conservative local outlier cleanup: suppress isolated dust/scratch pixels while preserving broad edges.
+    for (let y = 1; y < height - 1; y++) for (let x = 1; x < width - 1; x++) {
+      const p = (y * width + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        const left = original[p - 4 + c], right = original[p + 4 + c];
+        const up = original[p - width * 4 + c], down = original[p + width * 4 + c];
+        const cross = (left + right + up + down) / 4;
+        const difference = Math.abs(original[p + c] - cross);
+        const horizontal = Math.abs(left - right), vertical = Math.abs(up - down);
+        if (difference > 34 + (1 - amount) * 70 && (horizontal < 32 || vertical < 32)) {
+          frame.data[p + c] = original[p + c] * (1 - amount * 0.8) + cross * amount * 0.8;
+        }
+      }
+    }
+    sourceContext.putImageData(frame, 0, 0);
+  }
 
   const outputCanvas = document.createElement("canvas");
   outputCanvas.width = width * 4;
