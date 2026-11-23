@@ -29,7 +29,7 @@ export default function App() {
     if (next.size > 18 * 1024 * 1024) { setError("Зургийн хэмжээ 18 MB-аас бага байх ёстой."); return; }
     setError("");
     if (preview) URL.revokeObjectURL(preview);
-    setFile(next); setPreview(URL.createObjectURL(next)); setResult(null); setPhase("ready");
+    setFile(next); setPreview(URL.createObjectURL(next)); setResult(null); setResultPreview(""); setPhase("ready");
   }
 
   async function processPhoto() {
@@ -84,7 +84,7 @@ export default function App() {
 
   function reset() {
     if (preview) URL.revokeObjectURL(preview);
-    setFile(null); setPreview(""); setResult(null); setPhase("idle");
+    setFile(null); setPreview(""); setResult(null); setResultPreview(""); setPhase("idle");
     setOrderId(""); setCheckoutUrl(""); setError("");
   }
 
