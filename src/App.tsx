@@ -17,6 +17,8 @@ export default function App() {
   const [resultPreview, setResultPreview] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [compare, setCompare] = useState(50);
   const [error, setError] = useState("");
   const [orderId, setOrderId] = useState("");
   const [checkoutUrl, setCheckoutUrl] = useState("");
@@ -43,7 +45,8 @@ export default function App() {
     if (!file) return;
     setBusy(true); setError(""); setPhase("processing");
     try {
-      const restored = await restoreImage(file);
+      setProgress(2);
+      const restored = await restoreImage(file, (value) => setProgress(value));
       setResult(restored); setResultPreview(URL.createObjectURL(restored.blob)); setPhase("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Зураг сэргээхэд алдаа гарлаа."); setPhase("ready");
@@ -88,11 +91,11 @@ export default function App() {
   }
   function reset() {
     if (preview) URL.revokeObjectURL(preview);
-    setFile(null); setPreview(""); setResult(null); setResultPreview(""); setPhase("idle");
+    setFile(null); setPreview(""); setResult(null); setResultPreview(""); setPhase("idle"); setProgress(0); setCompare(50);
     setOrderId(""); setCheckoutUrl(""); setError("");
   }
-  function toggleChoice(id: RestoreChoice) {
-    setSelected(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id]);
+  function toggleChoice(_id: RestoreChoice) {
+    setSelected(["upscale"]);
     if (result) { setResult(null); setResultPreview(""); setPhase("ready"); }
   }
 
@@ -119,9 +122,10 @@ export default function App() {
         {error && <div className="error-box">{error}</div>}
         <button className="primary-btn full" onClick={processPhoto} disabled={!file || busy || selected.length === 0 || phase === "payment" || phase === "paid"}>{busy ? <><span className="spinner"/> Боловсруулж байна…</> : <><WandSparkles size={18}/> Зургийг сэргээх</>}</button>
         <div className="local-note"><LockKeyhole size={14}/> Зураг серверт илгээгдэхгүй, таны browser дотор боловсруулагдана.</div>
+        {busy && phase === "processing" && <div className="progress-card"><div className="progress-top"><b>AI боловсруулалт</b><span>{Math.round(progress)}%</span></div><div className="progress-track"><i style={{ width: `${progress}%` }}/></div><small>Эхлээд AI загварыг бэлдэж, дараа нь зургийг хэсэгчлэн сэргээж байна.</small></div>}
         <div className="divider-line"/>
         <div className="result-head"><div><span className="step-tag">03 / ҮР ДҮН</span><h2>Сэргээсэн зураг</h2></div><span className={phase === "done" || phase === "paid" ? "status-ready" : "status-wait"}>{phase === "done" || phase === "paid" ? "БЭЛЭН" : phase === "processing" ? "БОЛОВСРУУЛЖ БАЙНА" : "ХҮЛЭЭЖ БАЙНА"}</span></div>
-        {result && resultPreview ? <div className="result-image"><img src={resultPreview} alt="Сэргээсэн зураг"/><span>REAL-ESRGAN x4plus · AI</span></div> : <div className="empty-result"><span className="empty-icon"><WandSparkles size={25}/></span><b>Таны сэргээсэн зураг энд гарна</b><small>Зургаа оруулаад сэргээх товчийг дарна уу.</small></div>}
+        {result && resultPreview ? <div className="compare-wrap"><div className="compare-view"><img className="compare-after" src={resultPreview} alt="AI-аар сэргээсэн зураг"/><div className="compare-before" style={{ clipPath: `inset(0 ${100 - compare}% 0 0)` }}><img src={preview} alt="Эх зураг"/></div><span className="compare-label before-label">ӨМНӨ</span><span className="compare-label after-label">ДАРАА</span><div className="compare-divider" style={{ left: `${compare}%` }} /></div><input className="compare-range" aria-label="Өмнө ба дараах зургийг харьцуулах" type="range" min="0" max="100" value={compare} onChange={e => setCompare(Number(e.target.value))}/><div className="compare-hint">Харьцуулахын тулд гулсуурыг хөдөлгөнө үү</div></div> : <div className="empty-result"><span className="empty-icon"><WandSparkles size={25}/></span><b>Таны сэргээсэн зураг энд гарна</b><small>Зургаа оруулаад сэргээх товчийг дарна уу.</small></div>}
         {result && <div className="result-details"><span>{result.width} × {result.height} px</span><span>PNG · Төхөөрөмж дээр</span></div>}
         {phase === "done" && <div className="payment-card"><div><span className="payment-label">HD ЗУРАГ ТАТАХ</span><strong>3,000₮</strong><small>Нэг зураг · Нэг удаагийн төлбөр</small></div><button className="primary-btn" onClick={startPayment} disabled={busy}>Төлбөр төлөх <ArrowDownToLine size={16}/></button></div>}
         {phase === "payment" && <div className="payment-wait"><span className="spinner"/><b>{paymentState}</b><small>Төлбөрийн цонхонд гүйлгээгээ хийнэ үү. Энэ хуудсыг хааж болохгүй.</small><a href={checkoutUrl} target="_blank" rel="noreferrer">Төлбөрийн хуудсыг нээх ↗</a></div>}
