@@ -60,8 +60,8 @@ npx wrangler d1 migrations apply oldpix-orders --remote
 7. Production environment variables/secrets:
 
 ```bash
-npx wrangler pages secret put WIRE_API_KEY
-npx wrangler pages secret put WIRE_WEBHOOK_SECRET
+npx wrangler pages secret put WIRE_API_KEY --project-name oldpix-ai
+npx wrangler pages secret put WIRE_WEBHOOK_SECRET --project-name oldpix-ai
 ```
 
 APP_ORIGIN нь wrangler.toml дахь production домэйнтэй яг таарах ёстой. Preview environment-д тусдаа test configuration ашиглана. WIRE_API_KEY, WIRE_WEBHOOK_SECRET-ийг frontend env, GitHub эсвэл VITE_ хувьсагчид хэзээ ч хийж болохгүй.
