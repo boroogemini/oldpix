@@ -141,9 +141,9 @@ async function colorize(source: HTMLImageElement, progress?: (p:number)=>void): 
   await session.release(); sessionCache.delete("color");
   const chroma=out[session.outputNames[0]];
   if(!chroma || chroma.dims.length!==4 || chroma.dims[1]!==2) throw new Error("DDColor загварын гаралтын формат тохирохгүй байна.");
-  const ab=chroma.data as Float32Array, plane=size*size;
+  const ab=chroma.data as Float32Array, plane=size*size, abA=ab.subarray(0,plane), abB=ab.subarray(plane);
   for(let y=0;y<height;y++)for(let x=0;x<width;x++){
-    const i=y*width+x,j=i*4, ax=bilinear(ab.subarray(0,plane),size,size,(x+.5)*size/width-.5,(y+.5)*size/height-.5), by=bilinear(ab.subarray(plane),size,size,(x+.5)*size/width-.5,(y+.5)*size/height-.5);
+    const i=y*width+x,j=i*4, ax=bilinear(abA,size,size,(x+.5)*size/width-.5,(y+.5)*size/height-.5), by=bilinear(abB,size,size,(x+.5)*size/width-.5,(y+.5)*size/height-.5);
     const [r,g,b]=labRgb(L[i],ax,by);px[j]=r;px[j+1]=g;px[j+2]=b;
   }
   ctx.putImageData(image,0,0);progress?.(100);
