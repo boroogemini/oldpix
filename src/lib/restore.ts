@@ -1,5 +1,5 @@
 import type * as ort from "onnxruntime-web/wasm";
-import { runOldPhotoAI } from "./old-photo-ai";
+import { runOldPhotoAI, type PhotoAIOptions } from "./old-photo-ai";
 
 export type RestoreResult = {
   blob: Blob;
@@ -210,33 +210,40 @@ async function restoreTiled(source: HTMLImageElement, onProgress?: (value: numbe
   };
 }
 
-export async function restoreImage(file: File, onProgress?: (value: number) => void): Promise<RestoreResult> {
+export async function restoreImage(
+  file: File,
+  options: PhotoAIOptions,
+  onProgress?: (value: number) => void,
+): Promise<RestoreResult> {
   const url = URL.createObjectURL(file);
   try {
     const source = new Image();
     source.decoding = "async";
     source.src = url;
     await source.decode();
+    if (!source.naturalWidth || !source.naturalHeight) throw new Error("Зургийн файлыг уншиж чадсангүй.");
     onProgress?.(3);
-    if (!source.naturalWidth || !source.naturalHeight) {
-      throw new Error("Зургийн файлыг уншиж чадсангүй.");
+    const aiBlob = await runOldPhotoAI(source, options, value => onProgress?.(5 + value * (options.upscale ? 0.45 : 0.9)));
+    if (!options.upscale) {
+      const imageUrl = URL.createObjectURL(aiBlob);
+      try {
+        const image = new Image();
+        image.src = imageUrl;
+        await image.decode();
+        onProgress?.(100);
+        return { blob: aiBlob, mode: "onnx", width: image.naturalWidth, height: image.naturalHeight };
+      } finally { URL.revokeObjectURL(imageUrl); }
     }
-    onProgress?.(4);
-    const aiBlob = await runOldPhotoAI(source, (value) => onProgress?.(5 + value * 0.8));
     const aiUrl = URL.createObjectURL(aiBlob);
     try {
       const aiImage = new Image();
       aiImage.decoding = "async";
       aiImage.src = aiUrl;
       await aiImage.decode();
-      onProgress?.(58);
-      const result = await restoreTiled(aiImage, (value) => onProgress?.(58 + value * 0.42));
+      onProgress?.(52);
+      const result = await restoreTiled(aiImage, value => onProgress?.(52 + value * 0.48));
       onProgress?.(100);
       return result;
-    } finally {
-      URL.revokeObjectURL(aiUrl);
-    }
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+    } finally { URL.revokeObjectURL(aiUrl); }
+  } finally { URL.revokeObjectURL(url); }
 }
