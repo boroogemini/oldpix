@@ -109,7 +109,7 @@ async function applyAdjustments(blob: Blob, settings: RestoreAdjustments): Promi
       outputCanvas = transformed;
     }
     if (settings.crop > 0) {
-      const ratio = 1 - settings.crop / 100;
+      const ratio = 1 - adjustments.crop / 100;
       const cropWidth = Math.max(1, Math.round(outputCanvas.width * ratio));
       const cropHeight = Math.max(1, Math.round(outputCanvas.height * ratio));
       const cropped = document.createElement("canvas");
@@ -335,8 +335,8 @@ async function restoreTiled(source: HTMLImageElement, onProgress?: (value: numbe
   return {
     blob: await applyAdjustments(await canvasBlob(outputCanvas), adjustments),
     mode: "onnx",
-    width: Math.round(((settings.rotation % 180) === 0 ? outputCanvas.width : outputCanvas.height) * (1 - settings.crop / 100)),
-    height: Math.round(((settings.rotation % 180) === 0 ? outputCanvas.height : outputCanvas.width) * (1 - settings.crop / 100)),
+    width: Math.round(((adjustments.rotation % 180) === 0 ? outputCanvas.width : outputCanvas.height) * (1 - adjustments.crop / 100)),
+    height: Math.round(((adjustments.rotation % 180) === 0 ? outputCanvas.height : outputCanvas.width) * (1 - adjustments.crop / 100)),
   };
 }
 
