@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownToLine, ArrowRight, Check, ChevronDown, CircleHelp, Clock3, ImagePlus, LockKeyhole, Menu, ShieldCheck, Sparkles, UploadCloud, WandSparkles, X } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, Check, ChevronDown, CircleHelp, ImagePlus, LockKeyhole, Menu, ShieldCheck, Sparkles, UploadCloud, WandSparkles, X } from "lucide-react";
 import { createOrder, getOrder } from "./lib/api";
 import { restoreImage, type RestoreResult } from "./lib/restore";
 
@@ -65,7 +65,7 @@ export default function App() {
         const order = await getOrder(orderId);
         if (!active) return;
         if (order.status === "paid") { setPhase("paid"); setPaymentState("Төлбөр амжилттай баталгаажлаа"); }
-        else if (order.status === "expired" || order.status === "failed") { setPaymentState("Төлбөрийн хугацаа дууссан эсвэл амжилтгүй."); }
+        else if (order.status === "expired" || order.status === "failed") { setError("Төлбөрийн хугацаа дууссан эсвэл амжилтгүй боллоо. Дахин төлбөр үүсгэнэ үү."); setPhase("done"); }
         else setPaymentState("Wire.mn төлбөрийг баталгаажуулж байна…");
       } catch { if (active) setPaymentState("Холболтыг шалгаж байна…"); }
     };
