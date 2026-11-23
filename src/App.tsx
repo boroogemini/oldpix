@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, Check, ImagePlus, LockKeyhole, Moon, RotateCcw, ShieldCheck, Sparkles, Sun, UploadCloud, WandSparkles, X } from "lucide-react";
 import { createOrder, getOrder } from "./lib/api";
-import { restoreImage, type RestoreResult } from "./lib/restore";
+import { restoreImage, type RestoreResult, type RestoreAdjustments } from "./lib/restore";
+import Toolbar from "./components/Toolbar";
 
 type Phase = "idle" | "ready" | "processing" | "done" | "payment" | "paid";
 type RestoreChoice = "upscale";
@@ -19,6 +20,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [compare, setCompare] = useState(50);
+  const [adjustments, setAdjustments] = useState<RestoreAdjustments>({ brightness: 0, contrast: 0, saturation: 0, warmth: 0, sharpness: 0 });
   const [error, setError] = useState("");
   const [orderId, setOrderId] = useState("");
   const [checkoutUrl, setCheckoutUrl] = useState("");
@@ -46,7 +48,7 @@ export default function App() {
     setBusy(true); setError(""); setPhase("processing");
     try {
       setProgress(2);
-      const restored = await restoreImage(file, (value) => setProgress(value));
+      const restored = await restoreImage(file, (value) => setProgress(value), adjustments);
       setResult(restored); setResultPreview(URL.createObjectURL(restored.blob)); setPhase("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Зураг сэргээхэд алдаа гарлаа."); setPhase("ready");
@@ -91,7 +93,7 @@ export default function App() {
   }
   function reset() {
     if (preview) URL.revokeObjectURL(preview);
-    setFile(null); setPreview(""); setResult(null); setResultPreview(""); setPhase("idle"); setProgress(0); setCompare(50);
+    setFile(null); setPreview(""); setResult(null); setResultPreview(""); setPhase("idle"); setProgress(0); setCompare(50); setAdjustments({ brightness: 0, contrast: 0, saturation: 0, warmth: 0, sharpness: 0 });
     setOrderId(""); setCheckoutUrl(""); setError("");
   }
   function toggleChoice(_id: RestoreChoice) {
@@ -118,6 +120,7 @@ export default function App() {
         <input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={e => selectFile(e.target.files?.[0])}/>
         <div className="options-head"><div><span className="step-tag">02 / СОНГОЛТ</span><h2>Юуг нь сэргээх вэ?</h2><p>Хүссэн үйлдлүүдээ сонгоно уу.</p></div><button className="reset-options" onClick={() => setSelected(["upscale"])}>Анхны тохиргоо <RotateCcw size={13}/></button></div>
         <div className="choice-grid">{choices.map(choice => <button key={choice.id} className={`choice-card ${selected.includes(choice.id) ? "is-selected" : ""}`} onClick={() => toggleChoice(choice.id)}><span className="choice-symbol">{choice.icon}</span><span className="choice-copy"><b>{choice.title}</b><small>{choice.detail}</small></span><span className="choice-check">{selected.includes(choice.id) && <Check size={13}/>}</span></button>)}</div>
+        <Toolbar value={adjustments} onChange={(next) => { setAdjustments(next); if (result) { setResult(null); setResultPreview(""); setPhase("ready"); } }} />
         <div className="face-protect active"><span className="face-icon"><ShieldCheck size={19}/></span><span><b>Нүүрний төрхийг хиймлээр шинээр зурахгүй</b><small>Энэ хувилбар нүүрний тусгай сэргээх загвар ашиглахгүй. Иймээс таних төрхийг зохиомлоор өөрчлөхөөс зайлсхийж, эх зургийн мэдээлэлд тулгуурлана.</small></span></div>
         {error && <div className="error-box">{error}</div>}
         <button className="primary-btn full" onClick={processPhoto} disabled={!file || busy || selected.length === 0 || phase === "payment" || phase === "paid"}>{busy ? <><span className="spinner"/> Боловсруулж байна…</> : <><WandSparkles size={18}/> Зургийг сэргээх</>}</button>
