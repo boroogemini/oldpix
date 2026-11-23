@@ -138,6 +138,7 @@ async function colorize(source: HTMLImageElement, progress?: (p:number)=>void): 
   for(let i=0;i<size*size;i++){input[i]=data[i*4]/255;input[size*size+i]=data[i*4+1]/255;input[2*size*size+i]=data[i*4+2]/255;}
   progress?.(28);
   const out=await session.run({[session.inputNames[0]]:tensor(await import("onnxruntime-web/wasm"),input,[1,3,size,size])});
+  await session.release(); sessionCache.delete("color");
   const chroma=out[session.outputNames[0]];
   if(!chroma || chroma.dims.length!==4 || chroma.dims[1]!==2) throw new Error("DDColor загварын гаралтын формат тохирохгүй байна.");
   const ab=chroma.data as Float32Array, plane=size*size;
@@ -160,6 +161,7 @@ async function repairScratches(source: HTMLImageElement, progress?: (p:number)=>
   const detector=await loadSession("scratches",progress);
   const runtime=await import("onnxruntime-web/wasm");
   const detection=await detector.run({[detector.inputNames[0]]:tensor(runtime,gray,[1,1,dh,dw])});
+  await detector.release(); sessionCache.delete("scratches");
   const prediction=detection[detector.outputNames[0]];
   if(!prediction || prediction.dims.length!==4) throw new Error("Зураас илрүүлэх AI загварын гаралт буруу байна.");
   const logits=prediction.data as Float32Array;
@@ -190,6 +192,7 @@ async function repairScratches(source: HTMLImageElement, progress?: (p:number)=>
     else inputs[name]=tensor(runtime,rgb,[1,3,512,512]);
   }
   const restored=await lama.run(inputs);
+  await lama.release(); sessionCache.delete("lama");
   const result=restored[lama.outputNames[0]];
   if(!result || result.dims.length!==4 || result.dims[1]!==3) throw new Error("LaMa засварын AI гаралтын формат тохирохгүй байна.");
   const values=result.data as Float32Array, output=new ImageData(512,512);
