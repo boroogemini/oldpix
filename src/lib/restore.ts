@@ -222,7 +222,7 @@ export async function restoreImage(file: File, onProgress?: (value: number) => v
       throw new Error("Зургийн файлыг уншиж чадсангүй.");
     }
     onProgress?.(4);
-    const aiBlob = await runOldPhotoAI(source, (value) => onProgress?.(value * 0.55));
+    const aiBlob = await runOldPhotoAI(source, (value) => onProgress?.(5 + value * 0.8));
     const aiUrl = URL.createObjectURL(aiBlob);
     try {
       const aiImage = new Image();
