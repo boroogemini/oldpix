@@ -1,4 +1,4 @@
-import * as ort from "onnxruntime-web";
+import type * as ort from "onnxruntime-web";
 
 export type RestoreResult = { blob: Blob; mode: "onnx" | "local"; width: number; height: number };
 
@@ -10,10 +10,13 @@ let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
 async function getSession() {
   if (!sessionPromise) {
-    sessionPromise = ort.InferenceSession.create(MODEL_URL, {
-      executionProviders: ["wasm"],
-      graphOptimizationLevel: "all",
-    }).catch((error) => {
+    // Load the large ONNX runtime only when a user actually starts restoration.
+    sessionPromise = import("onnxruntime-web").then((ortRuntime) =>
+      ortRuntime.InferenceSession.create(MODEL_URL, {
+        executionProviders: ["wasm"],
+        graphOptimizationLevel: "all",
+      })
+    ).catch((error) => {
       sessionPromise = null;
       throw error;
     });
