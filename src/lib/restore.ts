@@ -1,4 +1,5 @@
 import type * as ort from "onnxruntime-web/wasm";
+import { runOldPhotoAI } from "./old-photo-ai";
 
 export type RestoreResult = {
   blob: Blob;
@@ -220,9 +221,21 @@ export async function restoreImage(file: File, onProgress?: (value: number) => v
     if (!source.naturalWidth || !source.naturalHeight) {
       throw new Error("Зургийн файлыг уншиж чадсангүй.");
     }
-    const result = await restoreTiled(source, onProgress);
-    onProgress?.(100);
-    return result;
+    onProgress?.(4);
+    const aiBlob = await runOldPhotoAI(source, (value) => onProgress?.(value * 0.55));
+    const aiUrl = URL.createObjectURL(aiBlob);
+    try {
+      const aiImage = new Image();
+      aiImage.decoding = "async";
+      aiImage.src = aiUrl;
+      await aiImage.decode();
+      onProgress?.(58);
+      const result = await restoreTiled(aiImage, (value) => onProgress?.(58 + value * 0.42));
+      onProgress?.(100);
+      return result;
+    } finally {
+      URL.revokeObjectURL(aiUrl);
+    }
   } finally {
     URL.revokeObjectURL(url);
   }
