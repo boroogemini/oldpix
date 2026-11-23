@@ -16,17 +16,29 @@ export const onRequestPost = async ({ request, env }: Context): Promise<Response
 
   const already = await env.DB.prepare("SELECT event_id FROM webhook_events WHERE event_id = ?").bind(event.id).first();
   if (already) return new Response("ok", { status: 200 });
-  if (event.type !== "payment_intent.succeeded") {
+  const object = event.data?.object || {};
+  const intentId = String(object.id || "");
+  const metadata = object.metadata as Record<string, unknown> | undefined;
+  const orderId = String(metadata?.order_id || "");
+  if (!intentId || !orderId) {
     await env.DB.prepare("INSERT OR IGNORE INTO webhook_events (event_id, event_type, received_at) VALUES (?, ?, ?)")
       .bind(event.id, event.type, new Date().toISOString()).run();
     return new Response("ok", { status: 200 });
   }
 
-  const object = event.data?.object || {};
-  const intentId = String(object.id || "");
-  const metadata = object.metadata as Record<string, unknown> | undefined;
-  const orderId = String(metadata?.order_id || "");
-  if (!intentId || !orderId) return new Response("Missing payment metadata", { status: 400 });
+  if (event.type === "payment_intent.canceled" || event.type === "payment_intent.payment_failed") {
+    const status = event.type.endsWith(".canceled") ? "expired" : "failed";
+    await env.DB.prepare("UPDATE orders SET status = ? WHERE id = ? AND payment_intent_id = ? AND status = 'pending'")
+      .bind(status, orderId, intentId).run();
+    await env.DB.prepare("INSERT OR IGNORE INTO webhook_events (event_id, event_type, received_at) VALUES (?, ?, ?)")
+      .bind(event.id, event.type, new Date().toISOString()).run();
+    return new Response("ok", { status: 200 });
+  }
+  if (event.type !== "payment_intent.succeeded") {
+    await env.DB.prepare("INSERT OR IGNORE INTO webhook_events (event_id, event_type, received_at) VALUES (?, ?, ?)")
+      .bind(event.id, event.type, new Date().toISOString()).run();
+    return new Response("ok", { status: 200 });
+  }
 
   // Never trust webhook body alone: re-read the PaymentIntent from Wire before fulfilment.
   const verifyResponse = await fetch(`https://api.wire.mn/v1/payment_intents/${encodeURIComponent(intentId)}`, {
