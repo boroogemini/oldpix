@@ -61,8 +61,9 @@ export const onRequestPost = async ({ request, env }: Context): Promise<Response
     await env.DB.prepare("UPDATE orders SET checkout_session_id = ? WHERE id = ?").bind(checkout.id, id).run();
     return json({ orderId: id, checkoutUrl: checkout.url, amount: 3000, currency: "MNT" }, 201);
   } catch (error) {
+    console.error("Wire payment creation failed", error);
     await env.DB.prepare("UPDATE orders SET status = 'failed' WHERE id = ?").bind(id).run();
-    return json({ error: error instanceof Error ? error.message : "Төлбөр үүсгэхэд алдаа гарлаа." }, 502);
+    return json({ error: "QPay төлбөр үүсгэхэд алдаа гарлаа. Дахин оролдоно уу." }, 502);
   }
 };
 
