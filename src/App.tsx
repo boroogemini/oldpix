@@ -4,13 +4,9 @@ import { createOrder, getOrder } from "./lib/api";
 import { restoreImage, type RestoreResult } from "./lib/restore";
 
 type Phase = "idle" | "ready" | "processing" | "done" | "payment" | "paid";
-type RestoreChoice = "repair" | "clarity" | "color" | "bw" | "upscale";
+type RestoreChoice = "upscale";
 const choices: { id: RestoreChoice; title: string; detail: string; icon: string }[] = [
-  { id: "repair", title: "Зураас, толбо арилгах", detail: "Гэмтэл, нугалаас, тоосны ул мөр", icon: "✦" },
-  { id: "clarity", title: "Бүдгэрэл тодруулах", detail: "Бүүдгэр, шуугиантай зургийг сайжруулах", icon: "◈" },
-  { id: "color", title: "Өнгө сэргээх", detail: "Гандсан өнгө, гэрэл, контраст", icon: "◉" },
-  { id: "bw", title: "Хар цагаан зургийг өнгөт болгох", detail: "Байгалийн өнгөөр сэргээх", icon: "◌" },
-  { id: "upscale", title: "HD / 4× томруулах", detail: "Илүү өндөр нягтралтай болгох", icon: "↗" },
+  { id: "upscale", title: "AI зураг сэргээх + HD 4×", detail: "Real-ESRGAN x4plus · деталь, бүдэгрэл, чимээ шуугианыг сайжруулах", icon: "✦" },
 ];
 
 export default function App() {
@@ -29,8 +25,7 @@ export default function App() {
     const saved = localStorage.getItem("huuchin-zurag-theme");
     return saved === "dark" ? "dark" : "light";
   });
-  const [selected, setSelected] = useState<RestoreChoice[]>(["repair", "clarity", "color", "upscale"]);
-  const [protectFace, setProtectFace] = useState(true);
+  const [selected, setSelected] = useState<RestoreChoice[]>(["upscale"]);
 
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem("huuchin-zurag-theme", theme); }, [theme]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
@@ -118,15 +113,15 @@ export default function App() {
           <span className="upload-icon"><UploadCloud size={27}/></span><b>Зургаа энд чирж оруулна уу</b><span>эсвэл төхөөрөмжөөсөө сонгоно уу</span><span className="browse-btn">Зураг сонгох <ImagePlus size={16}/></span>
         </button> : <div className="selected-file"><div className="selected-top"><b>Эх зураг</b><button className="icon-btn" onClick={reset} aria-label="Зураг солих"><X size={17}/></button></div><img src={preview} alt="Оруулсан эх зураг"/><div className="file-meta"><span>{file.name}</span><span>{(file.size/1024/1024).toFixed(1)} MB</span></div></div>}
         <input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={e => selectFile(e.target.files?.[0])}/>
-        <div className="options-head"><div><span className="step-tag">02 / СОНГОЛТ</span><h2>Юуг нь сэргээх вэ?</h2><p>Хүссэн үйлдлүүдээ сонгоно уу.</p></div><button className="reset-options" onClick={() => {setSelected(["repair","clarity","color","upscale"]);setProtectFace(true);}}>Анхны тохиргоо <RotateCcw size={13}/></button></div>
+        <div className="options-head"><div><span className="step-tag">02 / СОНГОЛТ</span><h2>Юуг нь сэргээх вэ?</h2><p>Хүссэн үйлдлүүдээ сонгоно уу.</p></div><button className="reset-options" onClick={() => setSelected(["upscale"])}>Анхны тохиргоо <RotateCcw size={13}/></button></div>
         <div className="choice-grid">{choices.map(choice => <button key={choice.id} className={`choice-card ${selected.includes(choice.id) ? "is-selected" : ""}`} onClick={() => toggleChoice(choice.id)}><span className="choice-symbol">{choice.icon}</span><span className="choice-copy"><b>{choice.title}</b><small>{choice.detail}</small></span><span className="choice-check">{selected.includes(choice.id) && <Check size={13}/>}</span></button>)}</div>
-        <button className={`face-protect ${protectFace ? "active" : ""}`} onClick={() => setProtectFace(!protectFace)}><span className="face-icon"><ShieldCheck size={19}/></span><span><b>Нүүр царайг өөрчлөхгүй хадгалах</b><small>Нүд, хамар, ам, нүүрний хэлбэр, нас, төрхийг аль болох хэвээр хадгална.</small></span><span className="switch"><i/></span></button>
+        <div className="face-protect active"><span className="face-icon"><ShieldCheck size={19}/></span><span><b>Нүүрний төрхийг хиймлээр шинээр зурахгүй</b><small>Энэ хувилбар нүүрний тусгай сэргээх загвар ашиглахгүй. Иймээс таних төрхийг зохиомлоор өөрчлөхөөс зайлсхийж, эх зургийн мэдээлэлд тулгуурлана.</small></span></div>
         {error && <div className="error-box">{error}</div>}
         <button className="primary-btn full" onClick={processPhoto} disabled={!file || busy || selected.length === 0 || phase === "payment" || phase === "paid"}>{busy ? <><span className="spinner"/> Боловсруулж байна…</> : <><WandSparkles size={18}/> Зургийг сэргээх</>}</button>
         <div className="local-note"><LockKeyhole size={14}/> Зураг серверт илгээгдэхгүй, таны browser дотор боловсруулагдана.</div>
         <div className="divider-line"/>
         <div className="result-head"><div><span className="step-tag">03 / ҮР ДҮН</span><h2>Сэргээсэн зураг</h2></div><span className={phase === "done" || phase === "paid" ? "status-ready" : "status-wait"}>{phase === "done" || phase === "paid" ? "БЭЛЭН" : phase === "processing" ? "БОЛОВСРУУЛЖ БАЙНА" : "ХҮЛЭЭЖ БАЙНА"}</span></div>
-        {result && resultPreview ? <div className="result-image"><img src={resultPreview} alt="Сэргээсэн зураг"/><span>{result.mode === "onnx" ? "AI ЗАГВАР" : "СУУРЬ САЙЖРУУЛАЛТ"}</span></div> : <div className="empty-result"><span className="empty-icon"><WandSparkles size={25}/></span><b>Таны сэргээсэн зураг энд гарна</b><small>Зургаа оруулаад сэргээх товчийг дарна уу.</small></div>}
+        {result && resultPreview ? <div className="result-image"><img src={resultPreview} alt="Сэргээсэн зураг"/><span>REAL-ESRGAN x4plus · AI</span></div> : <div className="empty-result"><span className="empty-icon"><WandSparkles size={25}/></span><b>Таны сэргээсэн зураг энд гарна</b><small>Зургаа оруулаад сэргээх товчийг дарна уу.</small></div>}
         {result && <div className="result-details"><span>{result.width} × {result.height} px</span><span>PNG · Төхөөрөмж дээр</span></div>}
         {phase === "done" && <div className="payment-card"><div><span className="payment-label">HD ЗУРАГ ТАТАХ</span><strong>3,000₮</strong><small>Нэг зураг · Нэг удаагийн төлбөр</small></div><button className="primary-btn" onClick={startPayment} disabled={busy}>Төлбөр төлөх <ArrowDownToLine size={16}/></button></div>}
         {phase === "payment" && <div className="payment-wait"><span className="spinner"/><b>{paymentState}</b><small>Төлбөрийн цонхонд гүйлгээгээ хийнэ үү. Энэ хуудсыг хааж болохгүй.</small><a href={checkoutUrl} target="_blank" rel="noreferrer">Төлбөрийн хуудсыг нээх ↗</a></div>}
