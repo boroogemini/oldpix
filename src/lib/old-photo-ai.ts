@@ -221,15 +221,28 @@ async function repairScratches(source: HTMLImageElement, progress?: (p:number)=>
   return finalCanvas;
 }
 
-export async function runOldPhotoAI(source: HTMLImageElement, onProgress?: (value:number)=>void): Promise<Blob> {
-  // Sequential model execution limits peak memory on ordinary laptops and phones.
-  onProgress?.(3);
-  let current=await repairScratches(source,p=>onProgress?.(5+p*.35));
-  let intermediate=await canvasToBlob(current);
-  let colorInput=await toImage(intermediate);
-  onProgress?.(43);
-  current=await colorize(colorInput,p=>onProgress?.(43+p*.22));
-  intermediate=await canvasToBlob(current);
-  onProgress?.(66);
-  return intermediate;
+export type PhotoAIOptions = { scratches: boolean; colorize: boolean; upscale: boolean };
+
+export async function runOldPhotoAI(source: HTMLImageElement, options: PhotoAIOptions, onProgress?: (value:number)=>void): Promise<Blob> {
+  // Sequential inference limits peak memory on ordinary laptops and phones.
+  let current: HTMLImageElement | HTMLCanvasElement = source;
+  let completed = 0;
+  const stages = Number(options.scratches) + Number(options.colorize);
+  const report = (p:number) => onProgress?.(stages ? (completed + p/100) / stages * 100 : 100);
+  if (options.scratches) {
+    const repaired = await repairScratches(current as HTMLImageElement, report);
+    current = repaired;
+    completed++;
+    onProgress?.(completed / Math.max(stages,1) * 100);
+  }
+  if (options.colorize) {
+    const inputBlob = await canvasToBlob(current instanceof HTMLCanvasElement ? current : canvasOf(current,current.naturalWidth,current.naturalHeight));
+    const colorInput = await toImage(inputBlob);
+    const colored = await colorize(colorInput, report);
+    current = colored;
+    completed++;
+    onProgress?.(completed / Math.max(stages,1) * 100);
+  }
+  const finalCanvas = current instanceof HTMLCanvasElement ? current : canvasOf(current,current.naturalWidth,current.naturalHeight);
+  return canvasToBlob(finalCanvas);
 }
