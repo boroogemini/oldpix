@@ -45,13 +45,21 @@ export default function App() {
 
   async function startPayment() {
     if (!result || busy) return;
+    // Open synchronously from the click gesture so browser popup blockers do not
+    // block the hosted checkout after the asynchronous order request.
+    const paymentTab = window.open("about:blank", "_blank");
+    if (paymentTab) paymentTab.opener = null;
     setBusy(true); setError("");
     try {
       const order = await createOrder();
       setOrderId(order.orderId); setCheckoutUrl(order.checkoutUrl); setPhase("payment");
-      const tab = window.open(order.checkoutUrl, "_blank", "noopener,noreferrer");
-      if (!tab) setError("Төлбөрийн цонх нээгдсэнгүй. Pop-up зөвшөөрөөд дахин оролдоно уу.");
+      if (paymentTab) {
+        paymentTab.location.href = order.checkoutUrl;
+      } else {
+        setError("Төлбөрийн цонх автоматаар нээгдсэнгүй. Доорх QPay холбоосоор үргэлжлүүлнэ үү.");
+      }
     } catch (e) {
+      if (paymentTab) paymentTab.close();
       setError(e instanceof Error ? e.message : "Төлбөр үүсгэж чадсангүй.");
     } finally { setBusy(false); }
   }
