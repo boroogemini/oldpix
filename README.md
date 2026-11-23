@@ -80,7 +80,7 @@ APP_ORIGIN нь wrangler.toml дахь production домэйнтэй яг таа
 Default model нь Hugging Face дахь thisismert/real-esrgan-onnx репозитороос Real-ESRGAN general x4v3 ONNX файлыг browser дээр татаж ажиллуулна. VITE_RESTORATION_MODEL_URL тохируулж өөрийн баталгаажсан ONNX загвараар сольж болно. Энэ нь 4× super-resolution болон denoise/upscale зориулалттай; хар-цагаан зураг өнгөт болгох, нүүрийг тусгайлан сэргээх, том зураас/урагдлыг нөхөх тусгай model биш. Одоогийн adapter нь дараах model contract хүлээнэ:
 
 - Input: float32 RGB tensor, shape [1, 3, 512, 512], pixel range [0, 1].
-- Output: float32 RGB tensor, shape [1, 3, H, W].
+- Output: float32 RGB tensor, shape [1, 3, 4H, 4W] (4× upscale).
 - Model нь browser ONNX Runtime Web дээр ажиллах ёстой.
 - Model hosting нь browser CORS болон cross-origin шаардлагыг хангах ёстой.
 
