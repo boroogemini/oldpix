@@ -61,6 +61,7 @@ async function localEnhance(source: HTMLImageElement, maxSide = 2400): Promise<R
 }
 
 async function neuralEnhance(source: HTMLImageElement): Promise<RestoreResult> {
+  const ortRuntime = await import("onnxruntime-web");
   const session = await getSession();
   // Keep browser memory bounded. The x4 model returns up to 2048px on its longest side.
   const scale = Math.min(1, 512 / Math.max(source.naturalWidth, source.naturalHeight));
@@ -83,7 +84,7 @@ async function neuralEnhance(source: HTMLImageElement): Promise<RestoreResult> {
   const inputName = session.inputNames[0];
   const outputName = session.outputNames[0];
   const output = await session.run({
-    [inputName]: new ort.Tensor("float32", input, [1, 3, height, width]),
+    [inputName]: new ortRuntime.Tensor("float32", input, [1, 3, height, width]),
   });
   const tensor = output[outputName];
   if (!tensor || tensor.dims.length !== 4 || tensor.dims[1] !== 3) {
