@@ -93,7 +93,7 @@ export default function App() {
   }
   function reset() {
     if (preview) URL.revokeObjectURL(preview);
-    setFile(null); setPreview(""); setResult(null); setResultPreview(""); setPhase("idle"); setProgress(0); setCompare(50); setAdjustments({ brightness: 0, contrast: 0, saturation: 0, warmth: 0, sharpness: 0, scratchReduction: 0, colorize: 0, rotation: 0, flipHorizontal: false, flipVertical: false, grayscale: false, sepia: 0 });
+    setFile(null); setPreview(""); setResult(null); setResultPreview(""); setPhase("idle"); setProgress(0); setCompare(50); setAdjustments({ brightness: 0, contrast: 0, saturation: 0, warmth: 0, sharpness: 0, scratchReduction: 0, colorize: 0, rotation: 0, flipHorizontal: false, flipVertical: false, grayscale: false, sepia: 0, crop: 0 });
     setOrderId(""); setCheckoutUrl(""); setError("");
   }
   function toggleChoice(_id: RestoreChoice) {
