@@ -24,7 +24,7 @@ export default function App() {
 
   function selectFile(next?: File) {
     if (!next) return;
-    if (!next.type.startsWith("image/")) { setError("Зөвхөн зураг файл сонгоно уу."); return; }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(next.type)) { setError("Зөвхөн JPG, PNG, WEBP зураг сонгоно уу."); return; }
     if (next.size > 18 * 1024 * 1024) { setError("Зургийн хэмжээ 18 MB-аас бага байх ёстой."); return; }
     setError("");
     if (preview) URL.revokeObjectURL(preview);
