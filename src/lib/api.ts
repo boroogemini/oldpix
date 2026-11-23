@@ -6,7 +6,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
   });
-  const payload = await response.json().catch(() => ({}));
+  const payload = await response.json().catch(() => ({})) as { error?: string };
   if (!response.ok) throw new Error(payload.error || "Хүсэлтийг боловсруулахад алдаа гарлаа.");
   return payload as T;
 }
