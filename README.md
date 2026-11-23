@@ -62,6 +62,7 @@ npx wrangler d1 migrations apply oldpix-orders --remote
 ```bash
 npx wrangler pages secret put WIRE_API_KEY --project-name oldpix-ai
 npx wrangler pages secret put WIRE_WEBHOOK_SECRET --project-name oldpix-ai
+# Set WIRE_QPAY_OPERATOR_ID as a Pages environment variable (exact ID from Wire → Connectors).
 ```
 
 APP_ORIGIN нь wrangler.toml дахь production домэйнтэй яг таарах ёстой. Preview environment-д тусдаа test configuration ашиглана. WIRE_API_KEY, WIRE_WEBHOOK_SECRET-ийг frontend env, GitHub эсвэл VITE_ хувьсагчид хэзээ ч хийж болохгүй.
