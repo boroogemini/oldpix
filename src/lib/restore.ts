@@ -335,8 +335,8 @@ async function restoreTiled(source: HTMLImageElement, onProgress?: (value: numbe
   return {
     blob: await applyAdjustments(await canvasBlob(outputCanvas), adjustments),
     mode: "onnx",
-    width: ((settings.rotation % 180) === 0 ? outputCanvas.width : outputCanvas.height),
-    height: ((settings.rotation % 180) === 0 ? outputCanvas.height : outputCanvas.width),
+    width: Math.round(((settings.rotation % 180) === 0 ? outputCanvas.width : outputCanvas.height) * (1 - settings.crop / 100)),
+    height: Math.round(((settings.rotation % 180) === 0 ? outputCanvas.height : outputCanvas.width) * (1 - settings.crop / 100)),
   };
 }
 
