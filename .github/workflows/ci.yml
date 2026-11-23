@@ -15,8 +15,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Dependency audit summary
+        run: |
+          npm audit --json > /tmp/npm-audit.json || true
+          node -e "const a=require('/tmp/npm-audit.json'); console.log('Dependency vulnerabilities:', JSON.stringify(a.metadata?.vulnerabilities || {}))"
       - name: Typecheck and build
         run: npm run build
