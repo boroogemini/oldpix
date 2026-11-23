@@ -1,4 +1,4 @@
-import { Aperture, Contrast, RotateCcw, SlidersHorizontal, Sun, Thermometer, WandSparkles, Zap, Brush, Palette, RotateCw, FlipHorizontal, FlipVertical, Rotate3D, Droplets, Eraser, ImageMinus } from "lucide-react";
+import { Aperture, Contrast, RotateCcw, SlidersHorizontal, Sun, Thermometer, WandSparkles, Zap, Brush, Palette, RotateCw, FlipHorizontal, FlipVertical, Eraser, ImageMinus } from "lucide-react";
 import type { RestoreAdjustments } from "../lib/restore";
 
 type Props = { value: RestoreAdjustments; onChange: (value: RestoreAdjustments) => void };
@@ -11,11 +11,12 @@ const controls = [
   { key: "scratchReduction", label: "Зураас, тоос багасгах", icon: Eraser, min: 0, max: 100, hint: "Жижиг толбо, тусгаарлагдсан зураасыг зөөлрүүлнэ" },
   { key: "colorize", label: "Хар цагаан зурагт өнгөний туяа", icon: Palette, min: 0, max: 100, hint: "Туршилтын алгоритмын өнгө оруулалт; AI өнгө танилт биш" },
   { key: "sepia", label: "Vintage / Sepia", icon: ImageMinus, min: 0, max: 100, hint: "Дурсамжийн бор шаргал өнгө" },
+  { key: "crop", label: "Төвөөс тайрах", icon: ImageMinus, min: 0, max: 35, hint: "Зургийн зах хэсгийг тайрч төвлөрүүлэх" },
 ] as const;
 
 export default function Toolbar({ value, onChange }: Props) {
   const set = (key: keyof RestoreAdjustments, amount: number) => onChange({ ...value, [key]: amount });
-  const reset = () => onChange({ brightness: 0, contrast: 0, saturation: 0, warmth: 0, sharpness: 0, scratchReduction: 0, colorize: 0, rotation: 0, flipHorizontal: false, flipVertical: false, grayscale: false, sepia: 0 });
+  const reset = () => onChange({ brightness: 0, contrast: 0, saturation: 0, warmth: 0, sharpness: 0, scratchReduction: 0, colorize: 0, rotation: 0, flipHorizontal: false, flipVertical: false, grayscale: false, sepia: 0, crop: 0 });
   const auto = () => onChange({ ...value, brightness: 5, contrast: 12, saturation: 8, warmth: 3, sharpness: 28, scratchReduction: 18 });
   const rotate = (amount: number) => onChange({ ...value, rotation: (value.rotation + amount + 360) % 360 });
   return <section className="edit-toolbar" aria-label="Зураг засварлах хэрэгслүүд">
@@ -29,9 +30,10 @@ export default function Toolbar({ value, onChange }: Props) {
     </div>
     <div className="toolbar-controls">{controls.map(({ key, label, icon: Icon, min, max, hint }) => <label className="tool-control" key={key}>
       <span className="tool-label"><span><Icon size={15}/>{label}</span><output>{value[key]}</output></span>
-      <input type="range" min={min} max={max} value={value[key]} onChange={e => set(key, Number(e.target.value)} />
+      <input type="range" min={min} max={max} value={value[key]} onChange={e => set(key, Number(e.target.value))} />
       <small>{hint}</small>
     </label>)}</div>
+    <button className="mono-toggle" type="button" aria-pressed={value.grayscale} onClick={() => onChange({ ...value, grayscale: !value.grayscale })}><Palette size={15}/>{value.grayscale ? "Хар цагаан горимыг унтраах" : "Хар цагаан болгох"}</button>
     <div className="editor-note"><Brush size={14}/> Зураас багасгалт нь жижиг толбо, нимгэн гэмтэлд зориулагдсан; том урагдал, дутуу хэсгийг нөхөх AI засвар одоогоор ороогүй.</div>
   </section>;
 }
