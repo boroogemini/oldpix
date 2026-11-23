@@ -1,4 +1,4 @@
-import type * as ort from "onnxruntime-web";
+import type * as ort from "onnxruntime-web/wasm";
 
 export type RestoreResult = { blob: Blob; mode: "onnx" | "local"; width: number; height: number };
 
@@ -10,8 +10,10 @@ let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
 async function getSession() {
   if (!sessionPromise) {
-    // Load the large ONNX runtime only when a user actually starts restoration.
-    sessionPromise = import("onnxruntime-web").then((ortRuntime) =>
+    // Import the WASM-only entry point. The default entry point also bundles
+    // the JSEP/WebGPU runtime, whose WASM binary exceeds Cloudflare Pages'
+    // 25 MiB per-file upload limit. OLDPix uses the WASM execution provider only.
+    sessionPromise = import("onnxruntime-web/wasm").then((ortRuntime) =>
       ortRuntime.InferenceSession.create(MODEL_URL, {
         executionProviders: ["wasm"],
         graphOptimizationLevel: "all",
@@ -61,7 +63,7 @@ async function localEnhance(source: HTMLImageElement, maxSide = 2400): Promise<R
 }
 
 async function neuralEnhance(source: HTMLImageElement): Promise<RestoreResult> {
-  const ortRuntime = await import("onnxruntime-web");
+  const ortRuntime = await import("onnxruntime-web/wasm");
   const session = await getSession();
   // Keep browser memory bounded. The x4 model returns up to 2048px on its longest side.
   const scale = Math.min(1, 512 / Math.max(source.naturalWidth, source.naturalHeight));
