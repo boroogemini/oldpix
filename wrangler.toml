@@ -5,7 +5,7 @@ pages_build_output_dir = "./dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "oldpix-orders"
-database_id = "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
+database_id = "e19d7e6b-4df3-4bc6-b958-1526e60ccf06"
 migrations_dir = "migrations"
 
 [vars]
