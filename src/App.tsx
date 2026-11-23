@@ -1,14 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, Check, ImagePlus, LockKeyhole, Moon, RotateCcw, ShieldCheck, Sparkles, Sun, UploadCloud, WandSparkles, X } from "lucide-react";
 import { createOrder, getOrder } from "./lib/api";
-import { restoreImage, type RestoreResult, type RestoreAdjustments } from "./lib/restore";
-import Toolbar from "./components/Toolbar";
+import { restoreImage, type RestoreResult } from "./lib/restore";
 
 type Phase = "idle" | "ready" | "processing" | "done" | "payment" | "paid";
-type RestoreChoice = "upscale";
-const choices: { id: RestoreChoice; title: string; detail: string; icon: string }[] = [
-  { id: "upscale", title: "AI зураг сэргээх + HD 4×", detail: "Real-ESRGAN x4plus · деталь, бүдэгрэл, чимээ шуугианыг сайжруулах", icon: "✦" },
-];
 
 export default function App() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -20,7 +15,6 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [compare, setCompare] = useState(50);
-  const [adjustments, setAdjustments] = useState<RestoreAdjustments>({ brightness: 0, contrast: 0, saturation: 0, warmth: 0, sharpness: 0, scratchReduction: 0, colorize: 0, rotation: 0, flipHorizontal: false, flipVertical: false, grayscale: false, sepia: 0, crop: 0 });
   const [error, setError] = useState("");
   const [orderId, setOrderId] = useState("");
   const [checkoutUrl, setCheckoutUrl] = useState("");
@@ -29,7 +23,6 @@ export default function App() {
     const saved = localStorage.getItem("huuchin-zurag-theme");
     return saved === "dark" ? "dark" : "light";
   });
-  const [selected, setSelected] = useState<RestoreChoice[]>(["upscale"]);
 
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem("huuchin-zurag-theme", theme); }, [theme]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
@@ -48,7 +41,7 @@ export default function App() {
     setBusy(true); setError(""); setPhase("processing");
     try {
       setProgress(2);
-      const restored = await restoreImage(file, (value) => setProgress(value), adjustments);
+      const restored = await restoreImage(file, (value) => setProgress(value));
       setResult(restored); setResultPreview(URL.createObjectURL(restored.blob)); setPhase("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Зураг сэргээхэд алдаа гарлаа."); setPhase("ready");
@@ -93,14 +86,9 @@ export default function App() {
   }
   function reset() {
     if (preview) URL.revokeObjectURL(preview);
-    setFile(null); setPreview(""); setResult(null); setResultPreview(""); setPhase("idle"); setProgress(0); setCompare(50); setAdjustments({ brightness: 0, contrast: 0, saturation: 0, warmth: 0, sharpness: 0, scratchReduction: 0, colorize: 0, rotation: 0, flipHorizontal: false, flipVertical: false, grayscale: false, sepia: 0, crop: 0 });
+    setFile(null); setPreview(""); setResult(null); setResultPreview(""); setPhase("idle"); setProgress(0); setCompare(50);
     setOrderId(""); setCheckoutUrl(""); setError("");
   }
-  function toggleChoice(_id: RestoreChoice) {
-    setSelected(["upscale"]);
-    if (result) { setResult(null); setResultPreview(""); setPhase("ready"); }
-  }
-
   return <div className="app-shell">
     <header className="topbar">
       <a className="brand" href="#" aria-label="Хуучин зураг"><span className="brand-mark"><Sparkles size={21}/></span><span>Хуучин зураг<small>ДУРСАМЖИЙГ ТОДРУУЛНА</small></span></a>
@@ -118,12 +106,14 @@ export default function App() {
           <span className="upload-icon"><UploadCloud size={27}/></span><b>Зургаа энд чирж оруулна уу</b><span>эсвэл төхөөрөмжөөсөө сонгоно уу</span><span className="browse-btn">Зураг сонгох <ImagePlus size={16}/></span>
         </button> : <div className="selected-file"><div className="selected-top"><b>Эх зураг</b><button className="icon-btn" onClick={reset} aria-label="Зураг солих"><X size={17}/></button></div><img src={preview} alt="Оруулсан эх зураг"/><div className="file-meta"><span>{file.name}</span><span>{(file.size/1024/1024).toFixed(1)} MB</span></div></div>}
         <input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={e => selectFile(e.target.files?.[0])}/>
-        <div className="options-head"><div><span className="step-tag">02 / СОНГОЛТ</span><h2>Юуг нь сэргээх вэ?</h2><p>Хүссэн үйлдлүүдээ сонгоно уу.</p></div><button className="reset-options" onClick={() => setSelected(["upscale"])}>Анхны тохиргоо <RotateCcw size={13}/></button></div>
-        <div className="choice-grid">{choices.map(choice => <button key={choice.id} className={`choice-card ${selected.includes(choice.id) ? "is-selected" : ""}`} onClick={() => toggleChoice(choice.id)}><span className="choice-symbol">{choice.icon}</span><span className="choice-copy"><b>{choice.title}</b><small>{choice.detail}</small></span><span className="choice-check">{selected.includes(choice.id) && <Check size={13}/>}</span></button>)}</div>
-        <Toolbar value={adjustments} onChange={(next) => { setAdjustments(next); if (result) { setResult(null); setResultPreview(""); setPhase("ready"); } }} />
-        <div className="face-protect active"><span className="face-icon"><ShieldCheck size={19}/></span><span><b>Нүүрний төрхийг хиймлээр шинээр зурахгүй</b><small>Энэ хувилбар нүүрний тусгай сэргээх загвар ашиглахгүй. Иймээс таних төрхийг зохиомлоор өөрчлөхөөс зайлсхийж, эх зургийн мэдээлэлд тулгуурлана.</small></span></div>
+        <div className="ai-engine-card">
+          <div className="ai-engine-icon"><Sparkles size={19}/></div>
+          <div className="ai-engine-copy"><span className="step-tag">02 / OPEN-SOURCE AI</span><h2>Автомат AI сэргээх</h2><p>Real-ESRGAN x4plus · BSD-3-Clause</p><small>AI загвар таны төхөөрөмж дээр ажиллаж, зургийг 4× хүртэл томруулан деталь болон дүрсний чанарыг сайжруулна.</small></div>
+          <span className="model-status">LOCAL AI</span>
+        </div>
+        <div className="model-privacy"><ShieldCheck size={17}/><span><b>Нээлттэй эхийн AI · Төхөөрөмж дээр боловсруулах</b><small>Зураг серверт илгээгдэхгүй. Одоогоор Real-ESRGAN x4plus загвар идэвхтэй.</small></span></div>
         {error && <div className="error-box">{error}</div>}
-        <button className="primary-btn full" onClick={processPhoto} disabled={!file || busy || selected.length === 0 || phase === "payment" || phase === "paid"}>{busy ? <><span className="spinner"/> Боловсруулж байна…</> : <><WandSparkles size={18}/> Зургийг сэргээх</>}</button>
+        <button className="primary-btn full" onClick={processPhoto} disabled={!file || busy || phase === "payment" || phase === "paid"}>{busy ? <><span className="spinner"/> Боловсруулж байна…</> : <><WandSparkles size={18}/> Зургийг сэргээх</>}</button>
         <div className="local-note"><LockKeyhole size={14}/> Зураг серверт илгээгдэхгүй, таны browser дотор боловсруулагдана.</div>
         {busy && phase === "processing" && <div className="progress-card"><div className="progress-top"><b>AI боловсруулалт</b><span>{Math.round(progress)}%</span></div><div className="progress-track"><i style={{ width: `${progress}%` }}/></div><small>Эхлээд AI загварыг бэлдэж, дараа нь зургийг хэсэгчлэн сэргээж байна.</small></div>}
         <div className="divider-line"/>
