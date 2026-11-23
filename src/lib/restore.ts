@@ -14,6 +14,62 @@ const MODEL_URL =
 const MODEL_SHA256 =
   "38fe853c9cd8e1d6fd0ff387f2d43c51c1352feb9d7b3e2533d4c07b1b932f68";
 
+
+export type RestoreAdjustments = {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  warmth: number;
+  sharpness: number;
+};
+
+const DEFAULT_ADJUSTMENTS: RestoreAdjustments = {
+  brightness: 0, contrast: 0, saturation: 0, warmth: 0, sharpness: 0,
+};
+
+async function applyAdjustments(blob: Blob, settings: RestoreAdjustments): Promise<Blob> {
+  const url = URL.createObjectURL(blob);
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) throw new Error("Засварлах canvas үүсгэж чадсангүй.");
+    context.filter = `brightness(${100 + settings.brightness}%) contrast(${100 + settings.contrast}%) saturate(${100 + settings.saturation}%)`;
+    context.drawImage(image, 0, 0);
+    context.filter = "none";
+    if (settings.warmth !== 0 || settings.sharpness > 0) {
+      const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+      const data = frame.data;
+      const warmth = settings.warmth * 0.55;
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.max(0, Math.min(255, data[i] + warmth));
+        data[i + 2] = Math.max(0, Math.min(255, data[i + 2] - warmth));
+      }
+      if (settings.sharpness > 0) {
+        const source = new Uint8ClampedArray(data);
+        const amount = settings.sharpness / 100 * 0.65;
+        const w = canvas.width, h = canvas.height;
+        for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+          const p = (y * w + x) * 4;
+          for (let channel = 0; channel < 3; channel++) {
+            const center = source[p + channel];
+            const neighbors = source[p - 4 + channel] + source[p + 4 + channel] + source[p - w * 4 + channel] + source[p + w * 4 + channel];
+            data[p + channel] = Math.max(0, Math.min(255, center + (center * 4 - neighbors) * amount * 0.25));
+          }
+        }
+      }
+      context.putImageData(frame, 0, 0);
+    }
+    return await canvasBlob(canvas);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
 async function getSession(): Promise<ort.InferenceSession> {
@@ -76,7 +132,7 @@ function makeInputTensor(
   return new runtime.Tensor("float32", rgb, [1, 3, height, width]);
 }
 
-async function restoreTiled(source: HTMLImageElement, onProgress?: (value: number) => void): Promise<RestoreResult> {
+async function restoreTiled(source: HTMLImageElement, onProgress?: (value: number) => void, adjustments: RestoreAdjustments = DEFAULT_ADJUSTMENTS): Promise<RestoreResult> {
   onProgress?.(5);
   const runtime = await import("onnxruntime-web/wasm");
   const session = await getSession();
@@ -202,14 +258,14 @@ async function restoreTiled(source: HTMLImageElement, onProgress?: (value: numbe
   }
 
   return {
-    blob: await canvasBlob(outputCanvas),
+    blob: await applyAdjustments(await canvasBlob(outputCanvas), adjustments),
     mode: "onnx",
     width: outputCanvas.width,
     height: outputCanvas.height,
   };
 }
 
-export async function restoreImage(file: File, onProgress?: (value: number) => void): Promise<RestoreResult> {
+export async function restoreImage(file: File, onProgress?: (value: number) => void, adjustments: RestoreAdjustments = DEFAULT_ADJUSTMENTS): Promise<RestoreResult> {
   const url = URL.createObjectURL(file);
   try {
     const source = new Image();
@@ -220,7 +276,7 @@ export async function restoreImage(file: File, onProgress?: (value: number) => v
     if (!source.naturalWidth || !source.naturalHeight) {
       throw new Error("Зургийн файлыг уншиж чадсангүй.");
     }
-    const result = await restoreTiled(source, onProgress);
+    const result = await restoreTiled(source, onProgress, adjustments);
     onProgress?.(100);
     return result;
   } finally {
